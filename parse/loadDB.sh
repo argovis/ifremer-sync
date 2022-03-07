@@ -1,0 +1,1 @@
+while read i ; do python translateProfile.py $i ; done < /tmp/kordiSelection.txt

@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ifremer-load
+  labels:
+    tier: api
+spec:
+  volumes:
+    - name: ifremer-mirror
+      persistentVolumeClaim:
+        claimName: ifremer-mirror
+    - name: logs
+      persistentVolumeClaim:
+        claimName: logs
+  containers:
+  - name: sync
+    imagePullPolicy: Always
+    image: argovis/ifremer-sync:dev
+    command: ['bash', 'loadDB.sh']
+    volumeMounts:
+      - mountPath: "/ifremer"
+        name: ifremer-mirror
+      - mountPath: "/tmp"
+        name: logs
+    resources:
+      requests:
+        memory: "0Gi"
+        cpu: "0m"
+      limits:
+        memory: 1.5Gi
+        cpu: 500m
+  restartPolicy: Never
