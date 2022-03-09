@@ -44,32 +44,59 @@ def argo_keymapping(nckey):
     # argo netcdf measurement name -> argovis measurement name
 
     key_mapping = {
-        "PRES": "pres",
-        "TEMP": "temp",
-        "PSAL": "psal",
-        "CNDX": "cndx",
-        "DOXY": "doxy",
-        "CHLA": "chla",
-        "CDOM": "cdom",
-        "NITRATE": "nitrate",
+        "BBP470": "bbp470",
+        "BBP532": "bbp532",
         "BBP700": "bbp700",
+        "BBP700_2": "bbp700_2",
+        "CDOM": "cdom",
+        "CHLA": "chla",
+        "CNDX": "cndx",
+        "CP660": "cp660",
+        "DOWN_IRRADIANCE380": "down_irradiance380",
         "DOWN_IRRADIANCE412": "down_irradiance412",
         "DOWN_IRRADIANCE442": "down_irradiance442",
+        "DOWN_IRRADIANCE443": "down_irradiance443",
         "DOWN_IRRADIANCE490": "down_irradiance490",
+        "DOWN_IRRADIANCE555": "down_irradiance555",
         "DOWNWELLING_PAR": "downwelling_par",
-        "PRES_QC": "pres_qc",
-        "TEMP_QC": "temp_qc",
-        "PSAL_QC": "psal_qc",
-        "CNDX_QC": "cndx_qc",
-        "DOXY_QC": "doxy_qc",
-        "CHLA_QC": "chla_qc",
-        "CDOM_QC": "cdom_qc",
-        "NITRATE_QC": "nitrate_qc",
+        "DOXY": "doxy",
+        "MOLAR_DOXY": "molar_doxy",
+        "NITRATE": "nitrate",
+        "PH_IN_SITU_TOTAL": "ph_in_situ_total",
+        "PRES": "pres",
+        "PSAL": "psal",
+        "TEMP": "temp",
+        "UP_RADIANCE412": "up_radiance412",
+        "UP_RADIANCE443": "up_radiance443",
+        "UP_RADIANCE490": "up_radiance490",
+        "UP_RADIANCE555": "up_radiance555",
+        "BBP470_QC": "bbp470_qc",
+        "BBP532_QC": "bbp532_qc",
         "BBP700_QC": "bbp700_qc",
+        "BBP700_2_QC": "bbp700_2_qc",
+        "CDOM_QC": "cdom_qc",
+        "CHLA_QC": "chla_qc",
+        "CNDX_QC": "cndx_qc",
+        "CP660_QC": "cp660_qc",
+        "DOWN_IRRADIANCE380_QC": "down_irradiance380_qc",
         "DOWN_IRRADIANCE412_QC": "down_irradiance412_qc",
         "DOWN_IRRADIANCE442_QC": "down_irradiance442_qc",
+        "DOWN_IRRADIANCE443_QC": "down_irradiance443_qc",
         "DOWN_IRRADIANCE490_QC": "down_irradiance490_qc",
-        "DOWNWELLING_PAR_QC": "downwelling_par_qc"
+        "DOWN_IRRADIANCE555_QC": "down_irradiance555_qc",
+        "DOWNWELLING_PAR_QC": "downwelling_par_qc",
+        "DOXY_QC": "doxy_qc",
+        "MOLAR_DOXY_QC": "molar_doxy_qc",
+        "NITRATE_QC": "nitrate_qc",
+        "PH_IN_SITU_TOTAL_QC": "ph_in_situ_total_qc",
+        "PRES_QC": "pres_qc",
+        "PSAL_QC": "psal_qc",
+        "TEMP_QC": "temp_qc",
+        "UP_RADIANCE412_QC": "up_radiance412_qc",
+        "UP_RADIANCE443_QC": "up_radiance443_qc",
+        "UP_RADIANCE490_QC": "up_radiance490_qc",
+        "UP_RADIANCE555_QC": "up_radiance555_qc"
+
     }
 
     try:
@@ -130,8 +157,8 @@ def extract_metadata(ncfile, pidx=0):
     LATITUDE = xar['LATITUDE'].to_dict()['data'][pidx]
     LONGITUDE = xar['LONGITUDE'].to_dict()['data'][pidx]
 
-    ## platform_wmo_number
-    metadata['platform_wmo_number'] = int(xar['PLATFORM_NUMBER'].to_dict()['data'][pidx].decode('UTF-8'))
+    ## platform_id
+    metadata['platform_id'] = xar['PLATFORM_NUMBER'].to_dict()['data'][pidx].decode('UTF-8').strip()
 
     ## cycle_number
     metadata['cycle_number'] = int(xar['CYCLE_NUMBER'].to_dict()['data'][pidx])
@@ -141,7 +168,7 @@ def extract_metadata(ncfile, pidx=0):
         metadata['profile_direction'] = xar['DIRECTION'].to_dict()['data'][pidx].decode('UTF-8') 
 
     # id == platform_cycle<D> for primary profile
-    metadata['_id'] = str(metadata['platform_wmo_number']) + '_' + stringcycle(metadata['cycle_number'])
+    metadata['_id'] = str(metadata['platform_id']) + '_' + stringcycle(metadata['cycle_number'])
     if metadata['profile_direction'] == 'D':
         metadata['_id'] += 'D'
 
@@ -202,10 +229,10 @@ def extract_metadata(ncfile, pidx=0):
         metadata['timestamp_argoqc'] = int(xar['JULD_QC'].to_dict()['data'][pidx].decode('UTF-8'))
 
     ## fleetmonitoring
-    metadata['fleetmonitoring'] = 'https://fleetmonitoring.euro-argo.eu/float/' + str(metadata['platform_wmo_number'])
+    metadata['fleetmonitoring'] = 'https://fleetmonitoring.euro-argo.eu/float/' + str(metadata['platform_id'])
 
     ## oceanops
-    metadata['oceanops'] = 'https://www.ocean-ops.org/board/wa/Platform?ref=' + str(metadata['platform_wmo_number'])
+    metadata['oceanops'] = 'https://www.ocean-ops.org/board/wa/Platform?ref=' + str(metadata['platform_id'])
 
     ## platform_type
     if('PLATFORM_TYPE') in variables:
@@ -262,7 +289,7 @@ def compare_metadata(metadata):
     # given a list of metadata objects as returned by extract_metadata,
     # return true if all list elements are mutually consistent with having come from the same profile
 
-    comparisons = ['platform_wmo_number', 'cycle_number', '_id', 'basin', 'data_type', 'geolocation', 'instrument', 'data_center', 'timestamp', 'pi_name', 'geolocation_argoqc', 'timestamp_argoqc', 'fleetmonitoring', 'oceanops', 'platform_type', 'positioning_system', 'vertical_sampling_scheme', 'wmo_inst_type']
+    comparisons = ['platform_id', 'cycle_number', '_id', 'basin', 'data_type', 'geolocation', 'instrument', 'data_center', 'timestamp', 'pi_name', 'geolocation_argoqc', 'timestamp_argoqc', 'fleetmonitoring', 'oceanops', 'platform_type', 'positioning_system', 'vertical_sampling_scheme', 'wmo_inst_type']
 
     for m in metadata[1:]:
         for c in comparisons:
@@ -288,6 +315,7 @@ def extract_data(ncfile, pidx=0):
     xar = xarray.open_dataset(ncfile)
     REprefix = re.compile('^[A-Z]*')  
     prefix = REprefix.search(ncfile.split('/')[-1]).group(0)
+    allowed_core = ['PRES', 'TEMP', 'PSAL'] # will only consider these variables in core files, anything else should be ignored
 
     if prefix in ['D', 'R']:
         # core profile
@@ -301,13 +329,13 @@ def extract_data(ncfile, pidx=0):
                 print('error: no PRES_ADJUSTED found')
                 return None
             ## translate the STATION_PARAMETERS into [<PAR>_ADJUSTED, <PAR>_ADJUSTED_QC, ...
-            data_sought = [f(x) for x in xar['STATION_PARAMETERS'].to_dict()['data'][pidx] for f in (lambda name: name.decode('UTF-8').strip()+'_ADJUSTED',lambda name: name.decode('UTF-8').strip()+'_ADJUSTED_QC')]
+            data_sought = [f(x) for x in xar['STATION_PARAMETERS'].to_dict()['data'][pidx] if x.decode('UTF-8').strip() in allowed_core for f in (lambda name: name.decode('UTF-8').strip()+'_ADJUSTED',lambda name: name.decode('UTF-8').strip()+'_ADJUSTED_QC')]
         elif DATA_MODE == 'R':
             # use unadjusted data
             if 'PRES' not in list(xar.variables):
                 print('error: no PRES found')
                 return None
-            data_sought = [f(x) for x in xar['STATION_PARAMETERS'].to_dict()['data'][pidx] for f in (lambda name: name.decode('UTF-8').strip(),lambda name: name.decode('UTF-8').strip()+'_QC')]
+            data_sought = [f(x) for x in xar['STATION_PARAMETERS'].to_dict()['data'][pidx] if x.decode('UTF-8').strip() in allowed_core for f in (lambda name: name.decode('UTF-8').strip(),lambda name: name.decode('UTF-8').strip()+'_QC')]
         else:
             print('error: unexpected data mode detected:', DATA_MODE)
         data_by_var = [xar[x].to_dict()['data'][pidx] for x in data_sought]
@@ -356,11 +384,11 @@ def merge_metadata(md):
 
     metadata = {}
 
-    mandatory_unique_keys = ['_id', 'platform_wmo_number', 'cycle_number', 'basin', 'data_type', 'geolocation', 'instrument', 'timestamp', 'date_updated_argovis', 'fleetmonitoring', 'oceanops'] # yes, 'date_updated_argovis' will be different between the core and synthetic file for a given profile by a few ms, but we intentionally only keep one as this difference isn't meaningful
+    mandatory_unique_keys = ['_id', 'cycle_number', 'basin', 'data_type', 'geolocation', 'instrument', 'timestamp', 'date_updated_argovis', 'fleetmonitoring', 'oceanops'] # yes, 'date_updated_argovis' will be different between the core and synthetic file for a given profile by a few ms, but we intentionally only keep one as this difference isn't meaningful
     for key in mandatory_unique_keys:
         metadata[key] = md[0][key]
 
-    optional_unique_keys = ['profile_direction', 'doi', 'data_center', 'pi_name', 'country', 'geolocation_argoqc', 'timestamp_argoqc', 'platform_type', 'positioning_system', 'vertical_sampling_scheme', 'wmo_inst_type']
+    optional_unique_keys = ['profile_direction', 'platform_id', 'doi', 'data_center', 'pi_name', 'country', 'geolocation_argoqc', 'timestamp_argoqc', 'platform_type', 'positioning_system', 'vertical_sampling_scheme', 'wmo_inst_type']
     for key in optional_unique_keys:
         for m in md:
             if key in m:

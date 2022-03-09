@@ -13,7 +13,7 @@ spec:
   containers:
   - name: sync
     imagePullPolicy: Always
-    image: argovis/ifremer-sync:dev
+    image: argovis/ifremer-sync:parse
     command: ['python', 'choosefiles.py']
     volumeMounts:
       - mountPath: "/ifremer"

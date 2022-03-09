@@ -37,8 +37,8 @@ while True:
 		print('checking', xar['source'])
 
 		# metadata validation
-		if p['platform_wmo_number'] != int(xar['data']['PLATFORM_NUMBER'].to_dict()['data'][0].decode('UTF-8')):
-			print('platform_wmo_number mismatch at', xar['source'])
+		if p['platform_id'] != xar['data']['PLATFORM_NUMBER'].to_dict()['data'][0].decode('UTF-8').strip():
+			print('platform_id mismatch at', xar['source'])
 
 		if p['cycle_number'] != int(xar['data']['CYCLE_NUMBER'].to_dict()['data'][0]):
 			print('cycle_number mismatch at', xar['source'])
@@ -47,7 +47,7 @@ while True:
 			if p['profile_direction'] != xar['data']['DIRECTION'].to_dict()['data'][0].decode('UTF-8'):
 				print('profile_direction mismatch at', xar['source'])
 
-		reconstruct_id = str(p['platform_wmo_number']) + '_' + str(p['cycle_number']).zfill(3)		
+		reconstruct_id = str(p['platform_id']) + '_' + str(p['cycle_number']).zfill(3)		
 		if 'profile_direction' in p and p['profile_direction'] == 'D':
 			reconstruct_id += str(p['profile_direction']) 
 		if p['_id'] != reconstruct_id:
@@ -100,10 +100,10 @@ while True:
 			if p['timestamp_argoqc'] != int(xar['data']['JULD_QC'].to_dict()['data'][0].decode('UTF-8')):
 				print('timestamp_argoqc mismatch at', xar['source'])
 
-		if p['fleetmonitoring'] != 'https://fleetmonitoring.euro-argo.eu/float/' + str(p['platform_wmo_number']):
+		if p['fleetmonitoring'] != 'https://fleetmonitoring.euro-argo.eu/float/' + str(p['platform_id']):
 			print('fleetmonitoring mismatch at', xar['source'])
 
-		if p['oceanops'] != 'https://www.ocean-ops.org/board/wa/Platform?ref=' + str(p['platform_wmo_number']):
+		if p['oceanops'] != 'https://www.ocean-ops.org/board/wa/Platform?ref=' + str(p['platform_id']):
 			print('oceanops mismatch at', xar['source'])
 
 		if 'PLATFORM_TYPE' in list(xar['data'].variables):
@@ -124,16 +124,18 @@ while True:
 
 		# data validation
 
+		allowed_core = ['PRES', 'TEMP', 'PSAL'] # will only consider these variables in core files, anything else should be ignored
+
 		if prefix in ['R', 'D']:
 			# check core data
 			DATA_MODE = xar['data']['DATA_MODE'].to_dict()['data'][0].decode('UTF-8')
 			if DATA_MODE in ['A', 'D']:
 				# check adjusted data
-				data_sought = [f(x) for x in xar['data']['STATION_PARAMETERS'].to_dict()['data'][0] for f in (lambda name: name.decode('UTF-8').strip()+'_ADJUSTED',lambda name: name.decode('UTF-8').strip()+'_ADJUSTED_QC')]
+				data_sought = [f(x) for x in xar['data']['STATION_PARAMETERS'].to_dict()['data'][0] if x.decode('UTF-8').strip() in allowed_core for f in (lambda name: name.decode('UTF-8').strip()+'_ADJUSTED',lambda name: name.decode('UTF-8').strip()+'_ADJUSTED_QC')]
 				nc_pressure = xar['data']['PRES_ADJUSTED'].to_dict()['data'][0]
 				nc_pressure_label = 'PRES_ADJUSTED'
 			elif DATA_MODE == 'R':
-				data_sought = [f(x) for x in xar['data']['STATION_PARAMETERS'].to_dict()['data'][0] for f in (lambda name: name.decode('UTF-8').strip(),lambda name: name.decode('UTF-8').strip()+'_QC')]
+				data_sought = [f(x) for x in xar['data']['STATION_PARAMETERS'].to_dict()['data'][0] if x.decode('UTF-8').strip() in allowed_core for f in (lambda name: name.decode('UTF-8').strip(),lambda name: name.decode('UTF-8').strip()+'_QC')]
 				nc_pressure = xar['data']['PRES'].to_dict()['data'][0]
 				nc_pressure_label = 'PRES'
 			else:
