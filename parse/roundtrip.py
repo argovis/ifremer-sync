@@ -8,10 +8,11 @@ import util.helpers as h
 client = MongoClient('mongodb://database/argo')
 db = client.argo
 
+#profiles = list(db.profilesx.find({"platform_id":"7900121"}))
+#for p in profiles:
 while True:
 	time.sleep(60)
-	p = list(db.profs.aggregate([{"$sample": {"size": 1}}]))[0]
-	#p = db.profs.find_one({"_id":"5900476_000"})
+	p = list(db.profilesx.aggregate([{"$sample": {"size": 1}}]))[0]
 
 	p_lookup = {level[p['data_keys'].index('pres')]: ma.masked_array(level, [False]*len(level)) for level in p['data']} # transform argovis profile data into pressure-keyed lookup table of levels with values sorted as data_keys. Levels are initialized as masked arrays with no elements masked.
 	nc = []
@@ -53,8 +54,9 @@ while True:
 		if p['_id'] != reconstruct_id:
 			print('profile _id mangled for', xar['source'], p['_id'], reconstruct_id)
 
-		if p['basin'] != h.find_basin(xar['data']['LONGITUDE'].to_dict()['data'][0], xar['data']['LATITUDE'].to_dict()['data'][0]):
-			print('basin mismatch at', xar['source'])
+		if ('data_warning' not in p) or ('missing_location' not in p['data_warning']):
+			if p['basin'] != h.find_basin(xar['data']['LONGITUDE'].to_dict()['data'][0], xar['data']['LATITUDE'].to_dict()['data'][0]):
+				print('basin mismatch at', xar['source'])
 
 		if p['data_type'] != 'oceanicProfile':
 			print('data_type mismatch at', xar['source'])
@@ -122,91 +124,94 @@ while True:
 			if p['wmo_inst_type'] != xar['data']['WMO_INST_TYPE'].to_dict()['data'][0].decode('UTF-8').strip():
 				print('wmo_inst_type mismatch at', xar['source'])
 
-		# data validation
+		# data validation - dont bother at this time if degenerate levels detected, buyer should very beware on those profiles
+		if ('data_warning' not in p) or ("degenerate_levels" not in p['data_warning']):
+			allowed_core = ['PRES', 'TEMP', 'PSAL'] # will only consider these variables in core files, anything else should be ignored
 
-		allowed_core = ['PRES', 'TEMP', 'PSAL'] # will only consider these variables in core files, anything else should be ignored
+			if prefix in ['R', 'D']:
+				# check core data
+				DATA_MODE = xar['data']['DATA_MODE'].to_dict()['data'][0].decode('UTF-8')
+				if DATA_MODE in ['A', 'D']:
+					# check adjusted data
+					data_sought = [f(x) for x in xar['data']['STATION_PARAMETERS'].to_dict()['data'][0] if x.decode('UTF-8').strip() in allowed_core for f in (lambda name: name.decode('UTF-8').strip()+'_ADJUSTED',lambda name: name.decode('UTF-8').strip()+'_ADJUSTED_QC')]
+					nc_pressure = xar['data']['PRES_ADJUSTED'].to_dict()['data'][0]
+					nc_pressure_label = 'PRES_ADJUSTED'
+				elif DATA_MODE == 'R':
+					data_sought = [f(x) for x in xar['data']['STATION_PARAMETERS'].to_dict()['data'][0] if x.decode('UTF-8').strip() in allowed_core for f in (lambda name: name.decode('UTF-8').strip(),lambda name: name.decode('UTF-8').strip()+'_QC')]
+					nc_pressure = xar['data']['PRES'].to_dict()['data'][0]
+					nc_pressure_label = 'PRES'
+				else:
+					print('unrecognized DATA_MODE for', xar['source'])
 
-		if prefix in ['R', 'D']:
-			# check core data
-			DATA_MODE = xar['data']['DATA_MODE'].to_dict()['data'][0].decode('UTF-8')
-			if DATA_MODE in ['A', 'D']:
-				# check adjusted data
-				data_sought = [f(x) for x in xar['data']['STATION_PARAMETERS'].to_dict()['data'][0] if x.decode('UTF-8').strip() in allowed_core for f in (lambda name: name.decode('UTF-8').strip()+'_ADJUSTED',lambda name: name.decode('UTF-8').strip()+'_ADJUSTED_QC')]
-				nc_pressure = xar['data']['PRES_ADJUSTED'].to_dict()['data'][0]
-				nc_pressure_label = 'PRES_ADJUSTED'
-			elif DATA_MODE == 'R':
-				data_sought = [f(x) for x in xar['data']['STATION_PARAMETERS'].to_dict()['data'][0] if x.decode('UTF-8').strip() in allowed_core for f in (lambda name: name.decode('UTF-8').strip(),lambda name: name.decode('UTF-8').strip()+'_QC')]
-				nc_pressure = xar['data']['PRES'].to_dict()['data'][0]
-				nc_pressure_label = 'PRES'
+				nc_data = list(zip(*[xar['data'][var].to_dict()['data'][0] for var in data_sought])) # all the upstream data, packed in a list of levels (sorted by original nc sort order, not necessarily depth), each of which is a list of values sorted as data_sought
+				for level in nc_data:
+					pressure = h.cleanup(level[data_sought.index(nc_pressure_label)])
+					if pressure is None:
+						continue # summarily drop any level that doesn't have a meaningful pressure
+					elif pressure in p_lookup:
+						for nc_key in data_sought:
+							nc_val = h.cleanup(level[data_sought.index(nc_key)])
+							av_idx = p['data_keys'].index(h.argo_keymapping(nc_key))
+							av_val = p_lookup[pressure][av_idx]
+							if nc_val != av_val:
+								print(f'data mismatch at {nc_key} and pressure {pressure} in {xar["source"]}')
+							else:
+								p_lookup[pressure].mask[av_idx] = True # mask out any measurements found in both nc and mongo
+					else:
+						print(f'pressure {pressure} not found in argovis profile from sourcefile {xar["source"]}')
+
+			elif prefix in ['SD', 'SR']:
+				# check bgc / synth data
+				PARAMETER_DATA_MODE = [x.decode('UTF-8') for x in xar['data']['PARAMETER_DATA_MODE'].to_dict()['data'][0]]
+				STATION_PARAMETERS = [x.decode('UTF-8').strip() for x in xar['data']['STATION_PARAMETERS'].to_dict()['data'][0]]
+				data_sought = []
+				for var in zip(PARAMETER_DATA_MODE, STATION_PARAMETERS):
+					if var[0] in ['D', 'A']:
+						# use adjusted data
+						data_sought.extend([var[1]+'_ADJUSTED', var[1]+'_ADJUSTED_QC'])
+					elif var[0] == 'R':
+						# use unadjusted data
+						data_sought.extend([var[1],var[1]+'_QC'])
+					else:
+						print('error: unexpected data mode detected for', var[1])
+				if 'PRES_ADJUSTED' in data_sought:
+					nc_pressure = xar['data']['PRES_ADJUSTED'].to_dict()['data'][0]
+					nc_pressure_label = 'PRES_ADJUSTED'
+				elif 'PRES' in data_sought:
+					nc_pressure = xar['data']['PRES'].to_dict()['data'][0]
+					nc_pressure_label = 'PRES'
+				else:
+					print('no pressure variable found')
+
+				nc_data = list(zip(*[xar['data'][var].to_dict()['data'][0] for var in data_sought])) # all the upstream data, packed in a list of levels (sorted by original nc sort order, not necessarily depth), each of which is a list of values sorted as data_sought
+				for level in nc_data:
+					pressure = h.cleanup(level[data_sought.index(nc_pressure_label)])
+					if pressure is None:
+						continue # summarily drop any level that doesn't have a meaningful pressure
+					elif pressure in p_lookup:
+						for nc_key in data_sought:
+							nc_val = h.cleanup(level[data_sought.index(nc_key)])
+							av_idx = p['data_keys'].index(h.argo_keymapping(nc_key).replace('temp', 'temp_sfile').replace('psal', 'psal_sfile'))
+							av_val = p_lookup[pressure][av_idx]
+							if nc_val != av_val:
+								print(f'data mismatch at {nc_key} and pressure {pressure} in {xar["source"]}')
+							else:
+								p_lookup[pressure].mask[av_idx] = True # mask out any measurements found in both nc and mongo
+					else:
+						print(f'pressure {pressure} not found in argovis profile from sourcefile {xar["source"]}')
 			else:
-				print('unrecognized DATA_MODE for', xar['source'])
-
-			nc_data = list(zip(*[xar['data'][var].to_dict()['data'][0] for var in data_sought])) # all the upstream data, packed in a list of levels (sorted by original nc sort order, not necessarily depth), each of which is a list of values sorted as data_sought
-			for level in nc_data:
-				pressure = h.cleanup(level[data_sought.index(nc_pressure_label)])
-				if pressure is None:
-					continue # summarily drop any level that doesn't have a meaningful pressure
-				elif pressure in p_lookup:
-					for nc_key in data_sought:
-						nc_val = h.cleanup(level[data_sought.index(nc_key)])
-						av_idx = p['data_keys'].index(h.argo_keymapping(nc_key))
-						av_val = p_lookup[pressure][av_idx]
-						if nc_val != av_val:
-							print(f'data mismatch at {nc_key} and pressure {pressure} in {xar["source"]}')
-						else:
-							p_lookup[pressure].mask[av_idx] = True # mask out any measurements found in both nc and mongo
-				else:
-					print(f'pressure {pressure} not found in argovis profile from sourcefile {xar["source"]}')
-
-		elif prefix in ['SD', 'SR']:
-			# check bgc / synth data
-			PARAMETER_DATA_MODE = [x.decode('UTF-8') for x in xar['data']['PARAMETER_DATA_MODE'].to_dict()['data'][0]]
-			STATION_PARAMETERS = [x.decode('UTF-8').strip() for x in xar['data']['STATION_PARAMETERS'].to_dict()['data'][0]]
-			data_sought = []
-			for var in zip(PARAMETER_DATA_MODE, STATION_PARAMETERS):
-				if var[0] in ['D', 'A']:
-					# use adjusted data
-					data_sought.extend([var[1]+'_ADJUSTED', var[1]+'_ADJUSTED_QC'])
-				elif var[0] == 'R':
-					# use unadjusted data
-					data_sought.extend([var[1],var[1]+'_QC'])
-				else:
-					print('error: unexpected data mode detected for', var[1])
-			if 'PRES_ADJUSTED' in data_sought:
-				nc_pressure = xar['data']['PRES_ADJUSTED'].to_dict()['data'][0]
-				nc_pressure_label = 'PRES_ADJUSTED'
-			elif 'PRES' in data_sought:
-				nc_pressure = xar['data']['PRES'].to_dict()['data'][0]
-				nc_pressure_label = 'PRES'
-			else:
-				print('no pressure variable found')
-
-			nc_data = list(zip(*[xar['data'][var].to_dict()['data'][0] for var in data_sought])) # all the upstream data, packed in a list of levels (sorted by original nc sort order, not necessarily depth), each of which is a list of values sorted as data_sought
-			for level in nc_data:
-				pressure = h.cleanup(level[data_sought.index(nc_pressure_label)])
-				if pressure is None:
-					continue # summarily drop any level that doesn't have a meaningful pressure
-				elif pressure in p_lookup:
-					for nc_key in data_sought:
-						nc_val = h.cleanup(level[data_sought.index(nc_key)])
-						av_idx = p['data_keys'].index(h.argo_keymapping(nc_key).replace('temp', 'temp_sfile').replace('psal', 'psal_sfile'))
-						av_val = p_lookup[pressure][av_idx]
-						if nc_val != av_val:
-							print(f'data mismatch at {nc_key} and pressure {pressure} in {xar["source"]}')
-						else:
-							p_lookup[pressure].mask[av_idx] = True # mask out any measurements found in both nc and mongo
-				else:
-					print(f'pressure {pressure} not found in argovis profile from sourcefile {xar["source"]}')
+				print(f'unexpected prefix {prefix} found')
 		else:
-			print(f'unexpected prefix {prefix} found')
+			print('warning: degenerate_levels detected, data array not rechecked')
 
 	# if the argovis profile matches the netcdf exactly, then p_lookup should have nothing but masked values and Nones left:
-	for level in p_lookup:
-		if not p_lookup[level].mask.all():
-			leftovers = p_lookup[level][p_lookup[level].mask == False]
-			if not all(v is None for v in leftovers):
-				print(f'unmasked, non-None value in {p_lookup[level]} at profile {p["_id"]}')
-				print(p['data_keys'])
+	if ('data_warning' not in p) or ("degenerate_levels" not in p['data_warning']):
+		for level in p_lookup:
+			if not p_lookup[level].mask.all():
+				leftovers = p_lookup[level][p_lookup[level].mask == False]
+				if not all(v is None for v in leftovers):
+					print(f'unmasked, non-None value in {p_lookup[level]} at profile {p["_id"]}')
+					print(p['data_keys'])
 
 	for f in glob.glob("*.nc"):
 		os.remove(f)

@@ -150,12 +150,18 @@ def extract_metadata(ncfile, pidx=0):
 
     # some helpful facts and figures
     metadata = {}
+    data_warning = []
     xar = xarray.open_dataset(ncfile)
     REprefix = re.compile('^[A-Z]*')  
     prefix = REprefix.search(ncfile.split('/')[-1]).group(0)
     variables = list(xar.variables)
     LATITUDE = xar['LATITUDE'].to_dict()['data'][pidx]
     LONGITUDE = xar['LONGITUDE'].to_dict()['data'][pidx]
+    if math.isnan(LATITUDE) or math.isnan(LONGITUDE):
+        print(f'warning: LONGITUDE={LONGITUDE}, LATITUDE={LATITUDE}, setting to 0,-90')
+        LATITUDE = -90
+        LONGITUDE = 0
+        data_warning.append('missing_location')
 
     ## platform_id
     metadata['platform_id'] = xar['PLATFORM_NUMBER'].to_dict()['data'][pidx].decode('UTF-8').strip()
@@ -173,7 +179,12 @@ def extract_metadata(ncfile, pidx=0):
         metadata['_id'] += 'D'
 
     ## basin
-    metadata['basin'] = find_basin(LONGITUDE, LATITUDE)
+    if 'missing_location' not in data_warning:
+        metadata['basin'] = find_basin(LONGITUDE, LATITUDE)
+        if metadata['basin'] == -1:
+            data_warning.append('missing_basin')
+    else:
+        metadata['basin'] = -1
 
     ## data_type
     metadata['data_type'] = 'oceanicProfile'
@@ -189,11 +200,32 @@ def extract_metadata(ncfile, pidx=0):
     ## source_info
     metadata['source_info'] = [{}]
 
-    ### source_info.source TODO: what about argo_deep?
+    ### source_info.source
+    isDeep = False
+    deepthresh = 2500
     if prefix in ['R', 'D']:
+        # core argo
         metadata['source_info'][0]['source'] = ['argo_core']
+        #### deep
+        DATA_MODE = xar['DATA_MODE'].to_dict()['data'][pidx].decode('UTF-8')
+        if DATA_MODE in ['A', 'D']:
+            isDeep = max(xar['PRES_ADJUSTED'].to_dict()['data'][pidx]) > deepthresh
+        elif DATA_MODE == 'R':
+            isDeep = max(xar['PRES'].to_dict()['data'][pidx]) > deepthresh
     elif prefix in ['SR', 'SD']:
-        metadata['source_info'][0]['source'] = ['argo_bgc'] # TODO check if this is the intended interpretation
+        # bgc argo
+        metadata['source_info'][0]['source'] = ['argo_bgc']
+        #### deep
+        PARAMETER_DATA_MODE = [x.decode('UTF-8') for x in xar['PARAMETER_DATA_MODE'].to_dict()['data'][pidx]]
+        STATION_PARAMETERS = [x.decode('UTF-8').strip() for x in xar['STATION_PARAMETERS'].to_dict()['data'][pidx]]
+        pressure_mode = PARAMETER_DATA_MODE[STATION_PARAMETERS.index('PRES')]
+        if pressure_mode in ['D', 'A']:
+            isDeep = max(xar['PRES_ADJUSTED'].to_dict()['data'][pidx]) > deepthresh
+        elif pres_mode == 'R':
+            isDeep = max(xar['PRES'].to_dict()['data'][pidx]) > deepthresh
+
+    if isDeep:
+        metadata['source_info'][0]['source'].append('argo_deep')
 
     ### source_info.source_url
     metadata['source_info'][0]['source_url'] = 'ftp://ftp.ifremer.fr/ifremer/argo/dac/' + ncfile[9:]
@@ -208,7 +240,7 @@ def extract_metadata(ncfile, pidx=0):
     if('DATA_CENTRE') in variables:
       metadata['data_center'] = xar['DATA_CENTRE'].to_dict()['data'][pidx].decode('UTF-8')
 
-    ## timestamp: TODO make sure this doesn't get mangled on insertion
+    ## timestamp: 
     metadata['timestamp'] = xar['JULD'].to_dict()['data'][pidx]
 
     ## date_updated_argovis
@@ -249,6 +281,10 @@ def extract_metadata(ncfile, pidx=0):
     ## wmo_inst_type
     if('WMO_INST_TYPE') in variables:
       metadata['wmo_inst_type'] = xar['WMO_INST_TYPE'].to_dict()['data'][pidx].decode('UTF-8').strip()
+
+    ## data_warning
+    if len(data_warning) > 0:
+        metadata['data_warning'] = data_warning
 
     xar.close()
     return metadata
@@ -330,20 +366,23 @@ def extract_data(ncfile, pidx=0):
                 return None
             ## translate the STATION_PARAMETERS into [<PAR>_ADJUSTED, <PAR>_ADJUSTED_QC, ...
             data_sought = [f(x) for x in xar['STATION_PARAMETERS'].to_dict()['data'][pidx] if x.decode('UTF-8').strip() in allowed_core for f in (lambda name: name.decode('UTF-8').strip()+'_ADJUSTED',lambda name: name.decode('UTF-8').strip()+'_ADJUSTED_QC')]
+            nc_pressure = xar['PRES_ADJUSTED'].to_dict()['data'][pidx]
         elif DATA_MODE == 'R':
             # use unadjusted data
             if 'PRES' not in list(xar.variables):
                 print('error: no PRES found')
                 return None
             data_sought = [f(x) for x in xar['STATION_PARAMETERS'].to_dict()['data'][pidx] if x.decode('UTF-8').strip() in allowed_core for f in (lambda name: name.decode('UTF-8').strip(),lambda name: name.decode('UTF-8').strip()+'_QC')]
+            nc_pressure = xar['PRES'].to_dict()['data'][pidx]
         else:
             print('error: unexpected data mode detected:', DATA_MODE)
+        degenerate_levels = len(nc_pressure) != len(set(nc_pressure)) # known error: profiles with repeated pressures in the same file
         data_by_var = [xar[x].to_dict()['data'][pidx] for x in data_sought]
         argokeys = [argo_keymapping(x) for x in data_sought]
         data_keys_mode = {k: DATA_MODE for k in argokeys if '_qc' not in k} # ie assign the global mode to all non qc variables
         data_by_level = [list(x) for x in zip(*data_by_var)]
         data_by_level = [x for x in data_by_level if not math.isnan(x[argokeys.index('pres')])] # ie each level must have a pressure measurement
-        return {"data_keys": argokeys, "data": data_by_level, "data_keys_mode": data_keys_mode}
+        return {"data_keys": argokeys, "data": data_by_level, "data_keys_mode": data_keys_mode, "data_annotation": {"degenerate_levels": degenerate_levels, "argo_deep": max(nc_pressure)>2500}}
 
     elif prefix in ['SD', 'SR']:
         # BGC profile
@@ -359,17 +398,20 @@ def extract_data(ncfile, pidx=0):
                 # use adjusted data
                 data_sought.extend([var[1]+'_ADJUSTED', var[1]+'_ADJUSTED_QC'])
                 data_keys_mode[argo_keymapping(var[1]).replace('temp', 'temp_sfile').replace('psal', 'psal_sfile')] = var[0]
+                nc_pressure = xar['PRES_ADJUSTED'].to_dict()['data'][pidx]
             elif var[0] == 'R':
                 # use unadjusted data
                 data_sought.extend([var[1],var[1]+'_QC'])
                 data_keys_mode[argo_keymapping(var[1]).replace('temp', 'temp_sfile').replace('psal', 'psal_sfile')] = var[0]
+                nc_pressure = xar['PRES'].to_dict()['data'][pidx]
             else:
                 print('error: unexpected data mode detected for', var[1])
+        degenerate_levels = len(nc_pressure) != len(set(nc_pressure)) 
         data_by_var = [xar[x].to_dict()['data'][pidx] for x in data_sought]
         argokeys = [argo_keymapping(x).replace('temp', 'temp_sfile').replace('psal', 'psal_sfile') for x in data_sought]
         data_by_level = [list(x) for x in zip(*data_by_var)]
         data_by_level = [x for x in data_by_level if not math.isnan(x[argokeys.index('pres')])] 
-        return {"data_keys": argokeys, "data": data_by_level, "data_keys_mode": data_keys_mode}
+        return {"data_keys": argokeys, "data": data_by_level, "data_keys_mode": data_keys_mode,  "data_annotation": {"degenerate_levels": degenerate_levels, "argo_deep": max(nc_pressure)>2500} }
 
     else:
         print('error: got unexpected prefix when extracting data lists:', prefix)
@@ -401,6 +443,17 @@ def merge_metadata(md):
         for m in md:
             metadata[key].extend(m[key])
 
+    optional_multivalue_keys = ['data_warning']
+    for key in optional_multivalue_keys:
+        for m in md:
+            if key in m:
+                if key not in metadata:
+                    metadata[key] = []
+                metadata[key].extend(m[key])
+
+    if 'data_warning' in metadata:
+        metadata['data_warning'] = list(set(metadata['data_warning']))
+
     return metadata
 
 def merge_data(data_list):
@@ -417,7 +470,13 @@ def merge_data(data_list):
 
     # merge data
     data = {}
+    degenerate_levels = False
+    argo_deep = False
     for d in data_list:
+        # handle annotations on first pass
+        if "degenerate_levels" in d["data_annotation"] and d["data_annotation"]["degenerate_levels"]:
+            degenerate_levels = True
+            continue # don't add this data if levels have been duplicated
         keys = d['data_keys']
         for level in d['data']:
             p = level[keys.index('pres')]
@@ -443,7 +502,7 @@ def merge_data(data_list):
     else:
         print('error: no sensible data mode found for pres')
     
-    return {"data_keys": data_keys, "data_keys_mode": data_keys_mode, "data": [ [cleanup(meas) for meas in level] for level in d]}
+    return {"data_keys": data_keys, "data_keys_mode": data_keys_mode, "data": [ [cleanup(meas) for meas in level] for level in d], "data_annotation": {"degenerate_levels": degenerate_levels}}
 
 def cleanup(meas):
     # given a measurement, return the measurement after some generic cleanup

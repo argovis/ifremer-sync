@@ -1,6 +1,9 @@
-bash loadDB.sh /tmp/csiroSelection.A.txt  &
+A=/tmp/csiroSelection.A.txt
+B=/tmp/csiroSelection.B.txt
+rm ${A}.log ${B}.log
+bash loadDB.sh $A  &
 pids[0]=$!
-bash loadDB.sh /tmp/csiroSelection.B.txt  &
+bash loadDB.sh $B  &
 pids[1]=$!
 
 # wait for all pids
