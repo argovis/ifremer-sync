@@ -15,8 +15,8 @@ spec:
   containers:
   - name: sync
     imagePullPolicy: Always
-    image: argovis/ifremer-sync:dev
-    command: ['bash', 'loadDB.sh']
+    image: argovis/ifremer-sync:parse
+    command: ['bash', 'load-batch.sh']
     volumeMounts:
       - mountPath: "/ifremer"
         name: ifremer-mirror
@@ -27,6 +27,6 @@ spec:
         memory: "0Gi"
         cpu: "0m"
       limits:
-        memory: 1.5Gi
-        cpu: 500m
+        memory: 4Gi
+        cpu: 2000m
   restartPolicy: Never

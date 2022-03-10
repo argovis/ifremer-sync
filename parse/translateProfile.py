@@ -27,6 +27,13 @@ metadata = h.merge_metadata(separate_metadata)
 
 # merge data into single pressure axis list
 data = h.merge_data(separate_data)
+## append data warnings to metadata["data_warnings"] object
+if "degenerate_levels" in data["data_annotation"] and data["data_annotation"]["degenerate_levels"]:
+	if "data_warning" not in metadata:
+		metadata["data_warning"] = []
+	if "degenerate_levels" not in metadata["data_warning"]:
+		metadata["data_warning"].append("degenerate_levels")
+del data["data_annotation"]
 
 # combine metadata + data and return
 profile = {**metadata, **data}
@@ -34,7 +41,7 @@ profile = {**metadata, **data}
 
 # write to mongo
 try:
-	db.profs.insert_one(profile)
+	db.profilesx.insert_one(profile)
 except BaseException as err:
 	print('error: db write failure')
 	print(err)

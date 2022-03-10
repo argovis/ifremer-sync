@@ -24,13 +24,13 @@ This repo contains the scripts and documentation needed to re-sync the entire Ar
 
 This should create and run a pod that will generate a file `/tmp/profileSelection.txt` in your `logs` PVC; this file contains one line per profile identified, with each line containing the full path to all the files needed to reconstruct that profile, space separated.
 
-3. Populate mongodb with profiles. This step uses the same image as the file selection step, so simply start the pod:
+3. Populate mongodb with profiles. This step leverages some very simple parallelization; add the names of files listing profile files at the top of `load-batch.sh`. These files should be fragments, of any length, of the output from the previous step. Rebuild, push and run the container:
 
    ```
+   docker image build -t argovis/ifremer-sync:parse .
+   docker image push argovis/ifremer-mirror:dev
    kubectl apply -f loadDB.yaml
    ```
-
-   Note WIP: this needs to be parallelized, TBD.
 
 4. In parallel with the previous step, set up and start data integrity tests that doublecheck if the profiles landing in mongo match their upstream nc sources. From `parse/`:
 
