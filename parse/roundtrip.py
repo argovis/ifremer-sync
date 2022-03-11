@@ -37,6 +37,9 @@ while True:
 	for xar in nc:
 		print('checking', xar['source'])
 
+		LONGITUDE = xar['data']['LONGITUDE'].to_dict()['data'][0]
+		LATITUDE = xar['data']['LATITUDE'].to_dict()['data'][0]
+
 		# metadata validation
 		if p['platform_id'] != xar['data']['PLATFORM_NUMBER'].to_dict()['data'][0].decode('UTF-8').strip():
 			print('platform_id mismatch at', xar['source'])
@@ -55,13 +58,18 @@ while True:
 			print('profile _id mangled for', xar['source'], p['_id'], reconstruct_id)
 
 		if ('data_warning' not in p) or ('missing_location' not in p['data_warning']):
-			if p['basin'] != h.find_basin(xar['data']['LONGITUDE'].to_dict()['data'][0], xar['data']['LATITUDE'].to_dict()['data'][0]):
+			if p['basin'] != h.find_basin(LONGITUDE, LATITUDE):
 				print('basin mismatch at', xar['source'])
 
 		if p['data_type'] != 'oceanicProfile':
 			print('data_type mismatch at', xar['source'])
 
-		if p['geolocation'] != {'type': 'Point', 'coordinates': [xar['data']['LONGITUDE'].to_dict()['data'][0], xar['data']['LATITUDE'].to_dict()['data'][0]]}:
+		if math.isnan(LONGITUDE) or math.isnan(LATITUDE):
+			gl = {'type': 'Point', 'coordinates': [0, -90]}
+		else:
+			gl = {'type': 'Point', 'coordinates': [LONGITUDE, LATITUDE]}
+
+		if p['geolocation'] != gl:
 			print('geolocation mismatch at', xar['source'])
 
 		if p['instrument'] != 'profiling_float':
@@ -77,8 +85,7 @@ while True:
 		si['source_url'] = xar['source']
 		si['date_updated_source'] = datetime.datetime.strptime(xar['data']['DATE_UPDATE'].to_dict()['data'].decode('UTF-8'),'%Y%m%d%H%M%S')
 		si['data_keys_source'] = [key.decode('UTF-8').strip() for key in xar['data']['STATION_PARAMETERS'].to_dict()['data'][0]]
-		if si not in p['source_info']:
-			print('source_info mismatch at', xar['source'])
+		# note actual checking of si is deferred to the end, after we've assessed whether this is argo_deep
 
 		if p['data_center'] != xar['data']['DATA_CENTRE'].to_dict()['data'][0].decode('UTF-8'):
 			print('data_center mismatch at', xar['source'])
@@ -201,8 +208,14 @@ while True:
 						print(f'pressure {pressure} not found in argovis profile from sourcefile {xar["source"]}')
 			else:
 				print(f'unexpected prefix {prefix} found')
+
+			if max(nc_pressure) > 2500:
+				si['source'].append('argo_deep')
 		else:
 			print('warning: degenerate_levels detected, data array not rechecked')
+
+		if si not in p['source_info']:
+			print('source_info mismatch at', xar['source'])
 
 	# if the argovis profile matches the netcdf exactly, then p_lookup should have nothing but masked values and Nones left:
 	if ('data_warning' not in p) or ("degenerate_levels" not in p['data_warning']):

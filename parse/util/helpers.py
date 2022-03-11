@@ -221,7 +221,7 @@ def extract_metadata(ncfile, pidx=0):
         pressure_mode = PARAMETER_DATA_MODE[STATION_PARAMETERS.index('PRES')]
         if pressure_mode in ['D', 'A']:
             isDeep = max(xar['PRES_ADJUSTED'].to_dict()['data'][pidx]) > deepthresh
-        elif pres_mode == 'R':
+        elif pressure_mode == 'R':
             isDeep = max(xar['PRES'].to_dict()['data'][pidx]) > deepthresh
 
     if isDeep:
