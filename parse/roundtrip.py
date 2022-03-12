@@ -13,6 +13,8 @@ db = client.argo
 while True:
 	time.sleep(60)
 	p = list(db.profilesx.aggregate([{"$sample": {"size": 1}}]))[0]
+	#p = list(db.profilesx.find({"_id":"7900905_083"}))[0]
+	#p = list(db.profilesx.find({"_id":"7900636_020D"}))[0]
 
 	p_lookup = {level[p['data_keys'].index('pres')]: ma.masked_array(level, [False]*len(level)) for level in p['data']} # transform argovis profile data into pressure-keyed lookup table of levels with values sorted as data_keys. Levels are initialized as masked arrays with no elements masked.
 	nc = []

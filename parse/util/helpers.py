@@ -70,32 +70,32 @@ def argo_keymapping(nckey):
         "UP_RADIANCE443": "up_radiance443",
         "UP_RADIANCE490": "up_radiance490",
         "UP_RADIANCE555": "up_radiance555",
-        "BBP470_QC": "bbp470_qc",
-        "BBP532_QC": "bbp532_qc",
-        "BBP700_QC": "bbp700_qc",
-        "BBP700_2_QC": "bbp700_2_qc",
-        "CDOM_QC": "cdom_qc",
-        "CHLA_QC": "chla_qc",
-        "CNDX_QC": "cndx_qc",
-        "CP660_QC": "cp660_qc",
-        "DOWN_IRRADIANCE380_QC": "down_irradiance380_qc",
-        "DOWN_IRRADIANCE412_QC": "down_irradiance412_qc",
-        "DOWN_IRRADIANCE442_QC": "down_irradiance442_qc",
-        "DOWN_IRRADIANCE443_QC": "down_irradiance443_qc",
-        "DOWN_IRRADIANCE490_QC": "down_irradiance490_qc",
-        "DOWN_IRRADIANCE555_QC": "down_irradiance555_qc",
-        "DOWNWELLING_PAR_QC": "downwelling_par_qc",
-        "DOXY_QC": "doxy_qc",
-        "MOLAR_DOXY_QC": "molar_doxy_qc",
-        "NITRATE_QC": "nitrate_qc",
-        "PH_IN_SITU_TOTAL_QC": "ph_in_situ_total_qc",
-        "PRES_QC": "pres_qc",
-        "PSAL_QC": "psal_qc",
-        "TEMP_QC": "temp_qc",
-        "UP_RADIANCE412_QC": "up_radiance412_qc",
-        "UP_RADIANCE443_QC": "up_radiance443_qc",
-        "UP_RADIANCE490_QC": "up_radiance490_qc",
-        "UP_RADIANCE555_QC": "up_radiance555_qc"
+        "BBP470_QC": "bbp470_argoqc",
+        "BBP532_QC": "bbp532_argoqc",
+        "BBP700_QC": "bbp700_argoqc",
+        "BBP700_2_QC": "bbp700_2_argoqc",
+        "CDOM_QC": "cdom_argoqc",
+        "CHLA_QC": "chla_argoqc",
+        "CNDX_QC": "cndx_argoqc",
+        "CP660_QC": "cp660_argoqc",
+        "DOWN_IRRADIANCE380_QC": "down_irradiance380_argoqc",
+        "DOWN_IRRADIANCE412_QC": "down_irradiance412_argoqc",
+        "DOWN_IRRADIANCE442_QC": "down_irradiance442_argoqc",
+        "DOWN_IRRADIANCE443_QC": "down_irradiance443_argoqc",
+        "DOWN_IRRADIANCE490_QC": "down_irradiance490_argoqc",
+        "DOWN_IRRADIANCE555_QC": "down_irradiance555_argoqc",
+        "DOWNWELLING_PAR_QC": "downwelling_par_argoqc",
+        "DOXY_QC": "doxy_argoqc",
+        "MOLAR_DOXY_QC": "molar_doxy_argoqc",
+        "NITRATE_QC": "nitrate_argoqc",
+        "PH_IN_SITU_TOTAL_QC": "ph_in_situ_total_argoqc",
+        "PRES_QC": "pres_argoqc",
+        "PSAL_QC": "psal_argoqc",
+        "TEMP_QC": "temp_argoqc",
+        "UP_RADIANCE412_QC": "up_radiance412_argoqc",
+        "UP_RADIANCE443_QC": "up_radiance443_argoqc",
+        "UP_RADIANCE490_QC": "up_radiance490_argoqc",
+        "UP_RADIANCE555_QC": "up_radiance555_argoqc"
 
     }
 
@@ -103,12 +103,12 @@ def argo_keymapping(nckey):
         argoname = key_mapping[nckey.replace('_ADJUSTED', '')]
     except:
         print('warning: unexpected variable found in station_parameters:', nckey)
-        argoname = nckey.replace('_ADJUSTED', '').lower()
+        argoname = nckey.replace('_ADJUSTED', '').replace('_QC', '_argoqc').lower()
 
     return argoname
 
 def pack_objects(measurements):
-    # given an object measurements with keys==variable names (temp, temp_qc, pres...) and values equal to depth-ordered lists of the corresponding data,
+    # given an object measurements with keys==variable names (temp, temp_argoqc, pres...) and values equal to depth-ordered lists of the corresponding data,
     # return a depth-ordered list of objects with the appropriate keys.
 
     ## sanity checks
@@ -344,7 +344,7 @@ def extract_data(ncfile, pidx=0):
     # data_keys: list of data names found in the pidx'th profile in that file,
     # data: a level-ordered list of lists of the data values, in the same order as data_keys,
     # data_keys_mode: a dict keyed by non-QC variables found in data_keys, with values of 'D'elayed, 'A'djusted, or 'R'ealtime indicating the mode of each variable
-    # ie: {data_keys: ['pres', 'pres_qc', 'temp', 'temp_qc'], data: [[0.0, 1, 23.4, 1], [1.5, 1, 20.1, 1], ....]}
+    # ie: {data_keys: ['pres', 'pres_argoqc', 'temp', 'temp_argoqc'], data: [[0.0, 1, 23.4, 1], [1.5, 1, 20.1, 1], ....]}
     # return None if nonsense detected
 
     # some helpful facts and figures
@@ -379,7 +379,7 @@ def extract_data(ncfile, pidx=0):
         degenerate_levels = len(nc_pressure) != len(set(nc_pressure)) # known error: profiles with repeated pressures in the same file
         data_by_var = [xar[x].to_dict()['data'][pidx] for x in data_sought]
         argokeys = [argo_keymapping(x) for x in data_sought]
-        data_keys_mode = {k: DATA_MODE for k in argokeys if '_qc' not in k} # ie assign the global mode to all non qc variables
+        data_keys_mode = {k: DATA_MODE for k in argokeys if '_argoqc' not in k} # ie assign the global mode to all non qc variables
         data_by_level = [list(x) for x in zip(*data_by_var)]
         data_by_level = [x for x in data_by_level if not math.isnan(x[argokeys.index('pres')])] # ie each level must have a pressure measurement
         return {"data_keys": argokeys, "data": data_by_level, "data_keys_mode": data_keys_mode, "data_annotation": {"degenerate_levels": degenerate_levels, "argo_deep": max(nc_pressure)>2500}}
