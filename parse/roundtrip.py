@@ -13,8 +13,7 @@ db = client.argo
 while True:
 	time.sleep(60)
 	p = list(db.profilesx.aggregate([{"$sample": {"size": 1}}]))[0]
-	#p = list(db.profilesx.find({"_id":"7900905_083"}))[0]
-	#p = list(db.profilesx.find({"_id":"7900636_020D"}))[0]
+	#p = list(db.profilesx.find({"_id":"3900070_076"}))[0]
 
 	p_lookup = {level[p['data_keys'].index('pres')]: ma.masked_array(level, [False]*len(level)) for level in p['data']} # transform argovis profile data into pressure-keyed lookup table of levels with values sorted as data_keys. Levels are initialized as masked arrays with no elements masked.
 	nc = []
@@ -104,11 +103,19 @@ while True:
 				print('pi_name mismatch at', xar['source'])
 
 		if 'POSITION_QC' in list(xar['data'].variables):
-			if p['geolocation_argoqc'] != int(xar['data']['POSITION_QC'].to_dict()['data'][0].decode('UTF-8')):
+			pqc = xar['data']['POSITION_QC'].to_dict()['data'][0]
+			if type(pqc) is bytes:
+				if p['geolocation_argoqc'] != int(pqc.decode('UTF-8')):
+					print('geolocation_argoqc mismatch at', xar['source'])
+			elif p['geolocation_argoqc'] != -1:
 				print('geolocation_argoqc mismatch at', xar['source'])
 
 		if 'JULD_QC' in list(xar['data'].variables):
-			if p['timestamp_argoqc'] != int(xar['data']['JULD_QC'].to_dict()['data'][0].decode('UTF-8')):
+			jqc = xar['data']['JULD_QC'].to_dict()['data'][0]
+			if type(jqc) is bytes:
+				if p['timestamp_argoqc'] != int(jqc.decode('UTF-8')):
+					print('timestamp_argoqc mismatch at', xar['source'])
+			elif p['timestamp_argoqc'] != -1:
 				print('timestamp_argoqc mismatch at', xar['source'])
 
 		if p['fleetmonitoring'] != 'https://fleetmonitoring.euro-argo.eu/float/' + str(p['platform_id']):

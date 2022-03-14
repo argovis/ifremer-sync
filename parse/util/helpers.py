@@ -254,11 +254,17 @@ def extract_metadata(ncfile, pidx=0):
 
     ## geolocation_argoqc
     if('POSITION_QC') in variables:
-        metadata['geolocation_argoqc'] = int(xar['POSITION_QC'].to_dict()['data'][pidx].decode('UTF-8'))
+        try:
+            metadata['geolocation_argoqc'] = int(xar['POSITION_QC'].to_dict()['data'][pidx].decode('UTF-8'))
+        except:
+            metadata['geolocation_argoqc'] = -1
 
     ## timestamp_argoqc
     if('JULD_QC') in variables:
-        metadata['timestamp_argoqc'] = int(xar['JULD_QC'].to_dict()['data'][pidx].decode('UTF-8'))
+        try:
+            metadata['timestamp_argoqc'] = int(xar['JULD_QC'].to_dict()['data'][pidx].decode('UTF-8'))
+        except:
+            metadata['timestamp_argoqc'] = -1
 
     ## fleetmonitoring
     metadata['fleetmonitoring'] = 'https://fleetmonitoring.euro-argo.eu/float/' + str(metadata['platform_id'])
