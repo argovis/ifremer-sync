@@ -91,9 +91,14 @@ while True:
 		if p['data_center'] != xar['data']['DATA_CENTRE'].to_dict()['data'][0].decode('UTF-8'):
 			print('data_center mismatch at', xar['source'])
 
-		td = p['timestamp'] - xar['data']['JULD'].to_dict()['data'][0]
-		if not datetime.timedelta(milliseconds=-1) <= td <= datetime.timedelta(milliseconds=1):
-			print('timestamp mismatch at', xar['source'])
+		xts = xar['data']['JULD'].to_dict()['data'][0]
+		if xts is not None:
+			td = p['timestamp'] - xts
+			if not datetime.timedelta(milliseconds=-1) <= td <= datetime.timedelta(milliseconds=1):
+				print('timestamp mismatch at', xar['source'])
+		elif 'data_warning' not in p or 'missing_timestamp' not in p['data_warning']:
+			print('failed to warn of missing timestamp at', xar['source'])
+
 
 		if 'date_updated_argovis' not in p:
 			print('date_updated_argovis absent from profile derived from', xar['source'])

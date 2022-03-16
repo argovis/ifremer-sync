@@ -1,5 +1,5 @@
-A=/tmp/bodcSelection.A.txt
-B=/tmp/bodcSelection.B.txt
+A=/tmp/coriolisSelection.C.txt
+B=/tmp/coriolisSelection.D.txt
 rm ${A}.log ${B}.log
 bash loadDB.sh $A  &
 pids[0]=$!

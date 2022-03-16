@@ -48,6 +48,7 @@ def argo_keymapping(nckey):
         "BBP532": "bbp532",
         "BBP700": "bbp700",
         "BBP700_2": "bbp700_2",
+        "BISULFIDE": "bisulfide",
         "CDOM": "cdom",
         "CHLA": "chla",
         "CNDX": "cndx",
@@ -58,14 +59,17 @@ def argo_keymapping(nckey):
         "DOWN_IRRADIANCE443": "down_irradiance443",
         "DOWN_IRRADIANCE490": "down_irradiance490",
         "DOWN_IRRADIANCE555": "down_irradiance555",
+        "DOWN_IRRADIANCE670": "down_irradiance670",
         "DOWNWELLING_PAR": "downwelling_par",
         "DOXY": "doxy",
+        "DOXY2": "doxy2",
         "MOLAR_DOXY": "molar_doxy",
         "NITRATE": "nitrate",
         "PH_IN_SITU_TOTAL": "ph_in_situ_total",
         "PRES": "pres",
         "PSAL": "psal",
         "TEMP": "temp",
+        "TURBIDITY": "turbidity",
         "UP_RADIANCE412": "up_radiance412",
         "UP_RADIANCE443": "up_radiance443",
         "UP_RADIANCE490": "up_radiance490",
@@ -74,6 +78,7 @@ def argo_keymapping(nckey):
         "BBP532_QC": "bbp532_argoqc",
         "BBP700_QC": "bbp700_argoqc",
         "BBP700_2_QC": "bbp700_2_argoqc",
+        "BISULFIDE_QC": "bisulfide_argoqc",
         "CDOM_QC": "cdom_argoqc",
         "CHLA_QC": "chla_argoqc",
         "CNDX_QC": "cndx_argoqc",
@@ -84,14 +89,17 @@ def argo_keymapping(nckey):
         "DOWN_IRRADIANCE443_QC": "down_irradiance443_argoqc",
         "DOWN_IRRADIANCE490_QC": "down_irradiance490_argoqc",
         "DOWN_IRRADIANCE555_QC": "down_irradiance555_argoqc",
+        "DOWN_IRRADIANCE670_QC": "down_irradiance670_argoqc",
         "DOWNWELLING_PAR_QC": "downwelling_par_argoqc",
         "DOXY_QC": "doxy_argoqc",
+        "DOXY2_QC": "doxy2_argoqc",
         "MOLAR_DOXY_QC": "molar_doxy_argoqc",
         "NITRATE_QC": "nitrate_argoqc",
         "PH_IN_SITU_TOTAL_QC": "ph_in_situ_total_argoqc",
         "PRES_QC": "pres_argoqc",
         "PSAL_QC": "psal_argoqc",
         "TEMP_QC": "temp_argoqc",
+        "TURBIDITY_QC": "turbidity_argoqc",
         "UP_RADIANCE412_QC": "up_radiance412_argoqc",
         "UP_RADIANCE443_QC": "up_radiance443_argoqc",
         "UP_RADIANCE490_QC": "up_radiance490_argoqc",
@@ -242,6 +250,9 @@ def extract_metadata(ncfile, pidx=0):
 
     ## timestamp: 
     metadata['timestamp'] = xar['JULD'].to_dict()['data'][pidx]
+    if metadata['timestamp'] is None:
+        metadata['timestamp'] = datetime.datetime(9999, 1, 1)
+        data_warning.append('missing_timestamp')
 
     ## date_updated_argovis
     metadata['date_updated_argovis'] = datetime.datetime.now()
