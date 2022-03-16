@@ -170,6 +170,13 @@ def extract_metadata(ncfile, pidx=0):
         LATITUDE = -90
         LONGITUDE = 0
         data_warning.append('missing_location')
+    if LONGITUDE < -180:
+        print('warning: mutating longitude < -180')
+        LONGITUDE += 360
+    elif LONGITUDE > 180:
+        print('warning: mutating longitude > 180')
+        LONGITUDE -= 360
+
 
     ## platform_id
     metadata['platform_id'] = xar['PLATFORM_NUMBER'].to_dict()['data'][pidx].decode('UTF-8').strip()
