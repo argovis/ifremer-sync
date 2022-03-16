@@ -39,6 +39,12 @@ while True:
 		print('checking', xar['source'])
 
 		LONGITUDE = xar['data']['LONGITUDE'].to_dict()['data'][0]
+		if LONGITUDE < -180:
+			print('warning: mutating longitude < -180')
+			LONGITUDE += 360
+		elif LONGITUDE > 180:
+			print('warning: mutating longitude > 180')
+			LONGITUDE -= 360
 		LATITUDE = xar['data']['LATITUDE'].to_dict()['data'][0]
 
 		# metadata validation
