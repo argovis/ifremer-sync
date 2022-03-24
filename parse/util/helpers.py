@@ -163,20 +163,11 @@ def extract_metadata(ncfile, pidx=0):
     REprefix = re.compile('^[A-Z]*')  
     prefix = REprefix.search(ncfile.split('/')[-1]).group(0)
     variables = list(xar.variables)
-    LATITUDE = xar['LATITUDE'].to_dict()['data'][pidx]
-    LONGITUDE = xar['LONGITUDE'].to_dict()['data'][pidx]
-    if math.isnan(LATITUDE) or math.isnan(LONGITUDE):
-        print(f'warning: LONGITUDE={LONGITUDE}, LATITUDE={LATITUDE}, setting to 0,-90')
-        LATITUDE = -90
-        LONGITUDE = 0
-        data_warning.append('missing_location')
-    if LONGITUDE < -180:
-        print('warning: mutating longitude < -180')
-        LONGITUDE += 360
-    elif LONGITUDE > 180:
-        print('warning: mutating longitude > 180')
-        LONGITUDE -= 360
 
+    # parse location
+    LONGITUDE, LATITUDE = parse_location(xar['LONGITUDE'].to_dict()['data'][pidx], xar['LATITUDE'].to_dict()['data'][pidx])
+    if LATITUDE == -90 and LONGITUDE == 0:
+        data_warning.append('missing_location')
 
     ## platform_id
     metadata['platform_id'] = xar['PLATFORM_NUMBER'].to_dict()['data'][pidx].decode('UTF-8').strip()
@@ -547,7 +538,23 @@ def cleanup(meas):
 
     return round(meas,6) # at most 6 significant decimal places
 
+def parse_location(longitude, latitude):
+    # given the raw longitude, latitude from a netcdf file,
+    # normalize, clean and log problems
 
+    # official fill value from https://archimer.ifremer.fr/doc/00187/29825/86414.pdf, followed by things seen in the wild
+    latitude_fills = [99999, -99.999, -999.0]
+    longitude_fills = [99999, -999.999, -999.0] 
 
-
+    if math.isnan(latitude) or latitude in latitude_fills or math.isnan(longitude) or longitude in longitude_fills:
+        print(f'warning: LONGITUDE={longitude}, LATITUDE={latitude}, setting to 0,-90')
+        return 0, -90
+    elif longitude < -180:
+        print('warning: mutating longitude < -180')
+        return longitude + 360, latitude
+    elif longitude > 180:
+        print('warning: mutating longitude > 180')
+        return longitude - 360, latitude
+    else:
+        return longitude, latitude
 
