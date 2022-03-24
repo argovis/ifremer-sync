@@ -38,14 +38,7 @@ while True:
 	for xar in nc:
 		print('checking', xar['source'])
 
-		LONGITUDE = xar['data']['LONGITUDE'].to_dict()['data'][0]
-		if LONGITUDE < -180:
-			print('warning: mutating longitude < -180')
-			LONGITUDE += 360
-		elif LONGITUDE > 180:
-			print('warning: mutating longitude > 180')
-			LONGITUDE -= 360
-		LATITUDE = xar['data']['LATITUDE'].to_dict()['data'][0]
+		LONGITUDE, LATITUDE = h.parse_location(xar['data']['LONGITUDE'].to_dict()['data'][0], xar['data']['LATITUDE'].to_dict()['data'][0])
 
 		# metadata validation
 		if p['platform_id'] != xar['data']['PLATFORM_NUMBER'].to_dict()['data'][0].decode('UTF-8').strip():
