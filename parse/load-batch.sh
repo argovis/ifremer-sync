@@ -1,5 +1,5 @@
-A=/tmp/kmaSelection.A.txt
-B=/tmp/kmaSelection.B.txt
+A=/tmp/aomlSelection.G.txt
+B=/tmp/aomlSelection.H.txt
 rm ${A}.log ${B}.log
 bash loadDB.sh $A  &
 pids[0]=$!

@@ -16,7 +16,8 @@ spec:
   - name: sync
     imagePullPolicy: Always
     image: argovis/ifremer-sync:parse
-    command: ['bash', 'load-batch.sh']
+    #command: ['bash', 'load-batch.sh']
+    command: ['sleep', '1000000000']
     volumeMounts:
       - mountPath: "/ifremer"
         name: ifremer-mirror
