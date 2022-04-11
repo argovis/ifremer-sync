@@ -42,6 +42,6 @@ This should create and run a pod that will generate a file `/tmp/profileSelectio
 
  This pod is meant to run in the background indefinitely; check its logs periodically for any reports of mismatches found.
 
-5. [WIP] Once initial data loading is complete, rsync again using the `--itemize-changes` flag. Capture the list of new files, and repeat somethign similar to steps 2 and 3 to catch up on all the updates generated since the large initial sync began. You may have to repeat this several times until it takes less than a day.
+5. [WIP] Once initial data loading is complete, rsync again using the `--itemize-changes` flag. Capture the list of new files, and repeat somethign similar to steps 2 and 3 to catch up on all the updates generated since the large initial sync began. You may have to repeat this several times until it takes less than a day. Note the whole pipeline can probably be simplified by using this flag and parsing rsync output from the beginning, so that initial downloads and updates are the exact same pipeline.
 
 6. [WIP] set the rsync and update process to proceed at least daily, once it takes less than a day to complete.
