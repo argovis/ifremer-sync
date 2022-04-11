@@ -1,5 +1,5 @@
-A=/tmp/aomlSelection.I.txt
-B=/tmp/aomlSelection.J.txt
+A=/tmp/profileUpdates.220409.A.txt
+B=/tmp/profileUpdates.220409.B.txt
 rm ${A}.log ${B}.log
 bash loadDB.sh $A  &
 pids[0]=$!

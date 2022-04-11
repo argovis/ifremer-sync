@@ -1,4 +1,4 @@
-import re, xarray, datetime, math
+import re, xarray, datetime, math, glob
 from geopy import distance
 
 def pickprof(filename):
@@ -562,3 +562,22 @@ def parse_location(longitude, latitude):
     else:
         return longitude, latitude
 
+def select_files(folder, profile_number):
+    # folder: string; the folder containing profile .nc files synced from ifremer, ie '/ifremer/aoml/<platform number>/profiles'
+    # profile_number: string; the number and decending tag of the profile to consider, ie '099D'
+    # extract a list of filenames corresponding to this profile, and parse out the set of prefixes to consider; return a list of strings containing the full path to the relevant files.
+
+    REprefix = re.compile('^[A-Z]*')                 # SD, SR, BD, BR, D or R
+    REgroup = re.compile('[0-9]*_[0-9]*D{0,1}\.nc')  # everything but the prefix
+
+    pfilenames = [ x.split('/')[-1] for x in glob.glob(folder + '/*_' + profile_number + '.nc')]
+    if len(pfilenames) == 0:
+        return [] # can happen when looking for a file that rsync deleted without replacement
+    groupname = REgroup.search(pfilenames[0]).group(0)
+    prefixes = [REprefix.match(x).group(0) for x in pfilenames]
+    # choose by prefix
+    selected_prefixes = choose_prefix(prefixes)
+    files = []
+    for sp in selected_prefixes:
+        files.append(folder + '/' + sp + groupname)
+    return files

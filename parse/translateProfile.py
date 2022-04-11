@@ -41,7 +41,7 @@ profile = {**metadata, **data}
 
 # write to mongo
 try:
-	db.profiles.insert_one(profile)
+	db.profiles.replace_one({"_id": profile['_id']}, profile, upsert=True)
 except BaseException as err:
 	print('error: db write failure')
 	print(err)

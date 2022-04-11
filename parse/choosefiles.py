@@ -1,11 +1,8 @@
 # usage: python choosefiles.py
-# assumes rsync populated content under /ifremer
+# assumes a first rsync populating fresh content under /ifremer
 
-import os, glob, re
+import os
 import util.helpers as h
-
-REprefix = re.compile('^[A-Z]*')                 # SD, SR, BD, BR, D or R
-REgroup = re.compile('[0-9]*_[0-9]*D{0,1}\.nc')  # everything but the prefix
 
 dacs = os.listdir('/ifremer')
 filelist = open("/tmp/profileSelection.txt", "w")
@@ -23,16 +20,10 @@ for dac in dacs:
             continue
         profiles = set(map(h.pickprof, files))
         for profile in profiles:
-            # extract a list of filenames corresponding to this profile, and parse out the set of prefixes to consider
-            pfilenames = [ x.split('/')[-1] for x in glob.glob(folder + '/*_' + profile + '.nc')]
-            groupname = REgroup.search(pfilenames[0]).group(0)
-            prefixes = [REprefix.match(x).group(0) for x in pfilenames]
-            # choose by prefix
-            selected_prefixes = h.choose_prefix(prefixes)
-            # write to output fo pick up in next script
-            if len(selected_prefixes)>0:
-                for sp in selected_prefixes:
-                    filelist.write(folder + '/' + sp + groupname + ' ')
+            files = h.select_files(folder, profile)
+            if len(files)>0:
+                for f in files:
+                    filelist.write(f + ' ')
                 filelist.write('\n')
 
 filelist.close()

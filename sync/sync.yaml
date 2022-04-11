@@ -3,7 +3,7 @@ kind: CronJob
 metadata:
   name: ifremer-mirror
 spec:
-  schedule: "0 7 * * *"
+  schedule: "0 2 9 4 *"
   jobTemplate:
     spec:
       template:
@@ -14,6 +14,9 @@ spec:
             - name: ifremer-mirror
               persistentVolumeClaim:
                 claimName: ifremer-mirror
+            - name: logs
+              persistentVolumeClaim:
+                claimName: logs
           containers:
           - name: sync
             imagePullPolicy: Always
@@ -21,6 +24,8 @@ spec:
             volumeMounts:
               - mountPath: "/ifremer"
                 name: ifremer-mirror
+              - mountPath: "/logs"
+                name: logs
             resources:
               requests:
                 memory: "0Gi"
