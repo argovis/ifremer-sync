@@ -1,1 +1,0 @@
-while read i ; do python translateProfile.py $i >> $1.log 2>&1 ; done < $1
