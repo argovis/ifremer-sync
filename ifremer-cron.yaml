@@ -1,0 +1,43 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: ifremer-sync
+spec:
+  schedule: "0 7 * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          name: ifremer-sync
+          labels:
+            tier: api
+        spec:
+          volumes:
+            - name: ifremer-mirror
+              persistentVolumeClaim:
+                claimName: ifremer-mirror
+            - name: logs
+              persistentVolumeClaim:
+                claimName: logs
+          containers:
+            - name: ifremer-sync
+              image: argovis/ifremer-sync:nightly
+              command: ['bash', 'ifremer-sync.sh']
+              imagePullPolicy: Always
+              volumeMounts:
+                - mountPath: "/ifremer"
+                  name: ifremer-mirror
+                - mountPath: "/logs"
+                  name: logs
+              resources:
+                requests:
+                  memory: "0Gi"
+                  cpu: "0m"
+                limits:
+                  memory: 4Gi
+                  cpu: 1000m
+          restartPolicy: OnFailure
+          securityContext:
+            runAsUser: 1000660000
+            runAsGroup: 1000660000
