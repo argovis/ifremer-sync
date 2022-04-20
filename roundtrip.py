@@ -40,6 +40,12 @@ while True:
 	for xar in nc:
 		print('checking', xar['source'])
 
+		# bail out if file was updated in the last 24 h
+		ifremer_update = datetime.datetime.strptime(xar['data']['DATE_UPDATE'].to_dict()['data'].decode('UTF-8'),'%Y%m%d%H%M%S')
+		if datetime.datetime.now() - datetime.timedelta(hours=24) <= ifremer_update:
+			print('profile updated at ifremer in the last day, skipping validation')
+			continue
+
 		LONGITUDE, LATITUDE = h.parse_location(xar['data']['LONGITUDE'].to_dict()['data'][0], xar['data']['LATITUDE'].to_dict()['data'][0])
 
 		# metadata validation
