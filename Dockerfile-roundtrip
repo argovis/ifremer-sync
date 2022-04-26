@@ -2,7 +2,7 @@ FROM python:3.9
 
 RUN apt-get update -y
 RUN apt-get install nano
-RUN apt-get upgrade -y zlib1g
+RUN apt-get upgrade -y zlib1g subversion
 RUN pip install pymongo wget fsspec xarray scipy geopy
 
 WORKDIR /app
