@@ -36,15 +36,20 @@ while True:
 	if fileOpenFail:
 		continue
 
-	# check data integrity mongo <--> ifremer
+	# make sure nothing has been updated in the last 24h, otherwise move on
+	toosoon = False
 	for xar in nc:
-		print('checking', xar['source'])
-
 		# bail out if file was updated in the last 24 h
 		ifremer_update = datetime.datetime.strptime(xar['data']['DATE_UPDATE'].to_dict()['data'].decode('UTF-8'),'%Y%m%d%H%M%S')
 		if datetime.datetime.now() - datetime.timedelta(hours=24) <= ifremer_update:
-			print('profile updated at ifremer in the last day, skipping validation')
-			continue
+			print('profile updated at ifremer in the last day, skipping validation of', xar['source'], 'and related files.')
+			bailout = True
+	if toosoon:
+		continue
+
+	# check data integrity mongo <--> ifremer
+	for xar in nc:
+		print('checking', xar['source'])
 
 		LONGITUDE, LATITUDE = h.parse_location(xar['data']['LONGITUDE'].to_dict()['data'][0], xar['data']['LATITUDE'].to_dict()['data'][0])
 
