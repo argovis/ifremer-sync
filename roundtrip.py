@@ -8,14 +8,14 @@ import util.helpers as h
 client = MongoClient('mongodb://database/argo')
 db = client.argo
 
-#profiles = list(db.profiles.find({"platform_id":"7900121"}))
+#profiles = list(db.profiles.find({"_id":"1900438_447"}))
 #for p in profiles:
 while True:
 	time.sleep(60)
 	p = list(db.profiles.aggregate([{"$sample": {"size": 1}}]))[0]
 	while 'expocode' in p:
 		p = list(db.profiles.aggregate([{"$sample": {"size": 1}}]))[0]
-	#p = list(db.profiles.find({"_id":"3900070_076"}))[0]
+	#p = list(db.profiles.find({"_id":"1900438_447"}))[0]
 
 	p_lookup = {level[p['data_keys'].index('pres')]: ma.masked_array(level, [False]*len(level)) for level in p['data']} # transform argovis profile data into pressure-keyed lookup table of levels with values sorted as data_keys. Levels are initialized as masked arrays with no elements masked.
 	nc = []
@@ -242,6 +242,8 @@ while True:
 
 		if si not in p['source_info']:
 			print('source_info mismatch at', xar['source'])
+			print('mongo source_info:', p['source_info'])
+			print('.nc source_info:', si)
 
 	# if the argovis profile matches the netcdf exactly, then p_lookup should have nothing but masked values and Nones left:
 	if ('data_warning' not in p) or ("degenerate_levels" not in p['data_warning']):
