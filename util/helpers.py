@@ -253,7 +253,6 @@ def extract_metadata(ncfile, pidx=0):
     ## timestamp: 
     metadata['timestamp'] = xar['JULD'].to_dict()['data'][pidx]
     if metadata['timestamp'] is None:
-        metadata['timestamp'] = datetime.datetime(9999, 1, 1)
         data_warning.append('missing_timestamp')
 
     ## date_updated_argovis
