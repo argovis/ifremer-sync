@@ -57,8 +57,8 @@ else:
 try:
     platformmeta = list(db.argoMeta.find({"platform": argoMeta['platform'] }))
     argoMeta['_id'] = h.determine_metaid(argoMeta, platformmeta, str(argoMeta['platform']) + "_m")
-    print(argoMeta)
-    #db.argoMeta.replace_one({'_id': argoMeta['_id']}, argoMeta, True)
+    #print(argoMeta)
+    db.argoMeta.replace_one({'_id': argoMeta['_id']}, argoMeta, True)
 except BaseException as err:
     print('error: metadata upsert failure on', argoMeta)
     print(err)
@@ -66,8 +66,8 @@ except BaseException as err:
 argo['metadata'] = argoMeta['_id']
 # write data record to mongo
 try:
-    #db.argo.insert_one(argo)
-    print(argo)
+	#print(argo)
+    db.argo.insert_one(argo)
 except BaseException as err:
     print('error: db write failure')
     print(err)

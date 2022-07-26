@@ -529,6 +529,10 @@ def merge_data(data_list):
     unit_validation = [x.lower() == 'decibar' or x.lower() == 'dbar' for x in pres_unit]
     if not all(unit_validation):
         print('error: found odd unit for pressure in', pres_unit)
+
+    ## units and data_keys_mode should be lists ordered as data_keys in db, to match data
+    units = [units[x] if x in units else None for x in data_keys]
+    data_keys_mode = [data_keys_mode[x] if x in data_keys_mode else None for x in data_keys]
     
     return {"data_keys": data_keys, "units": units, "data_keys_mode": data_keys_mode, "data": [ [cleanup(meas) for meas in level] for level in d], "data_annotation": {"degenerate_levels": degenerate_levels}}
 
