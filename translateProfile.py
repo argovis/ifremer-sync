@@ -67,11 +67,10 @@ argo['metadata'] = argoMeta['_id']
 # write data record to mongo
 try:
 	#print(argo)
-    db.argo.insert_one(argo)
+    db.argo.replace_one({'_id': argo['_id']}, argo, True)
 except BaseException as err:
-    print('error: db write failure')
+    print('error: data upsert failure on', argoMeta)
     print(err)
-    print(argo)
 
 
 
