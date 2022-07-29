@@ -15,9 +15,14 @@ spec:
   containers:
   - name: ifremer
     imagePullPolicy: Always
-    image: argovis/ifremer-sync:dev
+    image: argovis/ifremer-sync:dev-sec
     #command: ['sleep', '1000000000000']
-    command: ['bash', 'testload.sh', '/logs/ifremer/synclog-20220726T070406/updatedprofiles']
+    #command: ['bash', 'testload.sh', '/logs/ifremer/synclog-20220726T070406/updatedprofiles']
+    # command: ['bash', 'testload.sh', '/logs/xaa']
+    # command: ['bash', 'testload.sh', '/logs/xab']
+    # command: ['bash', 'testload.sh', '/logs/xac']
+    # command: ['bash', 'testload.sh', '/logs/xad']
+    # command: ['bash', 'testload.sh', '/logs/xae']
     volumeMounts:
       - mountPath: "/ifremer"
         name: ifremer-mirror
@@ -29,5 +34,5 @@ spec:
         cpu: "0m"
       limits:
         memory: 1000Mi
-        cpu: 1000m
+        cpu: 500m
   restartPolicy: Never
