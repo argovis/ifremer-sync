@@ -307,7 +307,7 @@ def extract_metadata(ncfile, pidx=0):
     xar.close()
     return metadata
 
-def find_basin(lon, lat):
+def find_basin(lon, lat, suppress=False):
     # for a given lon, lat,
     # identify the basin from the lookup table.
     # choose the nearest non-nan grid point.
@@ -330,7 +330,8 @@ def find_basin(lon, lat):
         grids = [x for x in grids if not math.isnan(x[0])]
         if len(grids) == 0:
             # all points on land
-            print('warning: all surrounding basin grid points are NaN')
+            if not suppress:
+                print('warning: all surrounding basin grid points are NaN')
             basin = -1
         else:
             grids.sort(key=lambda tup: tup[1])
@@ -555,7 +556,7 @@ def cleanup(meas):
 
     return round(meas,6) # at most 6 significant decimal places
 
-def parse_location(longitude, latitude):
+def parse_location(longitude, latitude, suppress=False):
     # given the raw longitude, latitude from a netcdf file,
     # normalize, clean and log problems
 
@@ -564,13 +565,16 @@ def parse_location(longitude, latitude):
     longitude_fills = [99999, -999.999, -999.0] 
 
     if math.isnan(latitude) or latitude in latitude_fills or math.isnan(longitude) or longitude in longitude_fills:
-        print(f'warning: LONGITUDE={longitude}, LATITUDE={latitude}, setting to 0,-90')
+        if not suppress:
+            print(f'warning: LONGITUDE={longitude}, LATITUDE={latitude}, setting to 0,-90')
         return 0, -90
     elif longitude < -180:
-        print('warning: mutating longitude < -180')
+        if not suppress:
+            print('warning: mutating longitude < -180')
         return longitude + 360, latitude
     elif longitude > 180:
-        print('warning: mutating longitude > 180')
+        if not suppress:
+            print('warning: mutating longitude > 180')
         return longitude - 360, latitude
     else:
         return longitude, latitude

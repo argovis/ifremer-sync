@@ -3,7 +3,7 @@ FROM python:3.9
 RUN apt-get update -y
 RUN apt-get install nano
 RUN apt-get upgrade -y zlib1g subversion
-RUN apt-get install -y openssl/stable-security ldap-utils/stable-security
+#RUN apt-get install -y openssl/stable-security ldap-utils/stable-security dpkg/stable-security libfreetype-dev/stable
 RUN pip install pymongo wget fsspec xarray scipy geopy
 
 WORKDIR /app

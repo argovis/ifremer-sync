@@ -8,32 +8,46 @@ import util.helpers as h
 client = MongoClient('mongodb://database/argo')
 db = client.argo
 
-#profiles = list(db.profiles.find({"_id":"1900438_447"}))
-#for p in profiles:
 while True:
-	time.sleep(60)
-	p = list(db.profiles.aggregate([{"$sample": {"size": 1}}]))[0]
-	while 'expocode' in p:
-		p = list(db.profiles.aggregate([{"$sample": {"size": 1}}]))[0]
-	#p = list(db.profiles.find({"_id":"5903717_309"}))[0]
+	logmessage = ''
+	lenlog = 0
 
-	p_lookup = {level[p['data_keys'].index('pres')]: ma.masked_array(level, [False]*len(level)) for level in p['data']} # transform argovis profile data into pressure-keyed lookup table of levels with values sorted as data_keys. Levels are initialized as masked arrays with no elements masked.
+	# get a random profile, or pick one by ID
+	p = list(db.argo.aggregate([{"$sample": {"size": 1}}]))[0]
+	#p = list(db.argo.find({"_id":"5903717_309"}))[0]
+	m = list(db.argoMeta.find({"_id":p['metadata']}))[0]
+	logmessage += 'Checking profile id ' + str(p['_id']) + '\n'
+
+	# identify data_keys
+	data_keys = []
+	if 'data_keys' in p:
+		data_keys = p['data_keys']
+	elif 'data_keys' in m:
+		data_keys = m['data_keys']
+	else:
+		logmessage += 'no valid data_keys found, aborting.'
+		print(logmessage)
+		continue
+
+	# transform argovis profile data into pressure-keyed lookup table of levels with values sorted as data_keys. Levels are initialized as masked arrays with no elements masked.
+	p_lookup = {level[data_keys.index('pressure')]: ma.masked_array(level, [False]*len(level)) for level in p['data']} 
 	nc = []
 
 	# open all upstream netcdf files asociated with the profile; give up on read errors.
 	fileOpenFail = False
-	for source in p['source_info']:
+	for source in p['source']:
 		try:
-			filename = wget.download(source['source_url'])
+			filename = wget.download(source['url'])
 			nc.append({
-				"source": source['source_url'],
+				"source": source['url'],
 				"filename": filename,
 				"data": xarray.open_dataset(filename)
 			})
 		except:
-			print('failed to download and open', source['source_url'])
+			logmessage += 'failed to download and open ' + source['url'] + '\n'
 			fileOpenFail = True
 	if fileOpenFail:
+		print(logmessage)
 		continue
 
 	# make sure nothing has been updated in the last 24h, otherwise move on
@@ -42,51 +56,52 @@ while True:
 		# bail out if file was updated in the last 24 h
 		ifremer_update = datetime.datetime.strptime(xar['data']['DATE_UPDATE'].to_dict()['data'].decode('UTF-8'),'%Y%m%d%H%M%S')
 		if datetime.datetime.now() - datetime.timedelta(hours=24) <= ifremer_update:
-			print('profile updated at ifremer in the last day, skipping validation of', xar['source'], 'and related files.')
+			logmessage += 'profile updated at ifremer in the last day, skipping validation of ' + str(xar['source']) + ' and related files.\n'
 			bailout = True
 	if toosoon:
+		print(logmessage)
 		continue
 
 	# check data integrity mongo <--> ifremer
 	for xar in nc:
-		print('checking', xar['source'])
+		logmessage += 'checking ' + str(xar['source']) + '\n'
+		lenlog = len(logmessage)
 
-		LONGITUDE, LATITUDE = h.parse_location(xar['data']['LONGITUDE'].to_dict()['data'][0], xar['data']['LATITUDE'].to_dict()['data'][0])
+		LONGITUDE, LATITUDE = h.parse_location(xar['data']['LONGITUDE'].to_dict()['data'][0], xar['data']['LATITUDE'].to_dict()['data'][0], True)
 
 		# metadata validation
-		if p['platform_id'] != xar['data']['PLATFORM_NUMBER'].to_dict()['data'][0].decode('UTF-8').strip():
-			print('platform_id mismatch at', xar['source'])
+		if m['platform'] != xar['data']['PLATFORM_NUMBER'].to_dict()['data'][0].decode('UTF-8').strip():
+			logmessage += 'platform_id mismatch at ' + str(xar['source']) + '\n'
 
 		if p['cycle_number'] != int(xar['data']['CYCLE_NUMBER'].to_dict()['data'][0]):
-			print('cycle_number mismatch at', xar['source'])
+			logmessage += 'cycle_number mismatch at ' + str(xar['source']) + '\n'
 
 		if 'DIRECTION' in list(xar['data'].variables):
 			if p['profile_direction'] != xar['data']['DIRECTION'].to_dict()['data'][0].decode('UTF-8'):
-				print('profile_direction mismatch at', xar['source'])
+				logmessage += 'profile_direction mismatch at ' + str(xar['source']) + '\n'
 
-		reconstruct_id = str(p['platform_id']) + '_' + str(p['cycle_number']).zfill(3)		
+		reconstruct_id = str(m['platform']) + '_' + str(p['cycle_number']).zfill(3)		
 		if 'profile_direction' in p and p['profile_direction'] == 'D':
 			reconstruct_id += str(p['profile_direction']) 
 		if p['_id'] != reconstruct_id:
-			print('profile _id mangled for', xar['source'], p['_id'], reconstruct_id)
+			logmessage += 'profile _id mangled for ' + str(xar['source']) + ', ' + str(p['_id']) + ', ' + reconstruct_id + '\n'
 
 		if ('data_warning' not in p) or ('missing_location' not in p['data_warning']):
-			if p['basin'] != h.find_basin(LONGITUDE, LATITUDE):
-				print('basin mismatch at', xar['source'])
+			if p['basin'] != h.find_basin(LONGITUDE, LATITUDE, True):
+				logmessage += 'basin mismatch at ' + str(xar['source']) + '\n'
 
-		if p['data_type'] != 'oceanicProfile':
-			print('data_type mismatch at', xar['source'])
+		if m['data_type'] != 'oceanicProfile':
+			logmessage += 'data_type mismatch at ' + str(xar['source']) + '\n'
 
 		if math.isnan(LONGITUDE) or math.isnan(LATITUDE):
 			gl = {'type': 'Point', 'coordinates': [0, -90]}
 		else:
 			gl = {'type': 'Point', 'coordinates': [LONGITUDE, LATITUDE]}
-
 		if p['geolocation'] != gl:
-			print('geolocation mismatch at', xar['source'])
+			logmessage += 'geolocation mismatch at ' + str(xar['source']) + '\n'
 
-		if p['instrument'] != 'profiling_float':
-			print('instrument mismatch at', xar['source'])
+		if m['instrument'] != 'profiling_float':
+			logmessage += 'instrument mismatch at ' + str(xar['source']) + '\n'
 
 		si = {}
 		REprefix = re.compile('^[A-Z]*')  
@@ -95,67 +110,65 @@ while True:
 			si['source'] = ['argo_core']
 		elif prefix in ['SR', 'SD']:
 			si['source'] = ['argo_bgc']
-		si['source_url'] = xar['source']
-		si['date_updated_source'] = datetime.datetime.strptime(xar['data']['DATE_UPDATE'].to_dict()['data'].decode('UTF-8'),'%Y%m%d%H%M%S')
-		si['data_keys_source'] = [key.decode('UTF-8').strip() for key in xar['data']['STATION_PARAMETERS'].to_dict()['data'][0]]
+		si['url'] = xar['source']
+		si['date_updated'] = datetime.datetime.strptime(xar['data']['DATE_UPDATE'].to_dict()['data'].decode('UTF-8'),'%Y%m%d%H%M%S')
 		# note actual checking of si is deferred to the end, after we've assessed whether this is argo_deep
 
-		if p['data_center'] != xar['data']['DATA_CENTRE'].to_dict()['data'][0].decode('UTF-8'):
-			print('data_center mismatch at', xar['source'])
+		if m['data_center'] != xar['data']['DATA_CENTRE'].to_dict()['data'][0].decode('UTF-8'):
+			logmessage += 'data_center mismatch at ' + str(xar['source']) + '\n'
 
 		xts = xar['data']['JULD'].to_dict()['data'][0]
 		if xts is not None:
 			td = p['timestamp'] - xts
 			if not datetime.timedelta(milliseconds=-1) <= td <= datetime.timedelta(milliseconds=1):
-				print('timestamp mismatch at', xar['source'])
+				logmessage += 'timestamp mismatch at ' + str(xar['source']) + '\n'
 		elif 'data_warning' not in p or 'missing_timestamp' not in p['data_warning']:
-			print('failed to warn of missing timestamp at', xar['source'])
-
+			logmessage += 'failed to warn of missing timestamp at ' + str(xar['source']) + '\n'
 
 		if 'date_updated_argovis' not in p:
-			print('date_updated_argovis absent from profile derived from', xar['source'])
+			logmessage += 'date_updated_argovis absent from profile derived from ' + str(xar['source']) + '\n'
 
 		if 'PI_NAME' in list(xar['data'].variables):
-			if p['pi_name'] != xar['data']['PI_NAME'].to_dict()['data'][0].decode('UTF-8').strip().split(','):
-				print('pi_name mismatch at', xar['source'])
+			if m['pi_name'] != xar['data']['PI_NAME'].to_dict()['data'][0].decode('UTF-8').strip().split(','):
+				logmessage += 'pi_name mismatch at ' + str(xar['source']) + '\n'
 
 		if 'POSITION_QC' in list(xar['data'].variables):
 			pqc = xar['data']['POSITION_QC'].to_dict()['data'][0]
 			if type(pqc) is bytes:
 				if p['geolocation_argoqc'] != int(pqc.decode('UTF-8')):
-					print('geolocation_argoqc mismatch at', xar['source'])
+					logmessage += 'geolocation_argoqc mismatch at ' + str(xar['source']) + '\n'
 			elif p['geolocation_argoqc'] != -1:
-				print('geolocation_argoqc mismatch at', xar['source'])
+				logmessage += 'geolocation_argoqc mismatch at ' + str(xar['source']) + '\n'
 
 		if 'JULD_QC' in list(xar['data'].variables):
 			jqc = xar['data']['JULD_QC'].to_dict()['data'][0]
 			if type(jqc) is bytes:
 				if p['timestamp_argoqc'] != int(jqc.decode('UTF-8')):
-					print('timestamp_argoqc mismatch at', xar['source'])
+					logmessage += 'timestamp_argoqc mismatch at ' + str(xar['source']) + '\n'
 			elif p['timestamp_argoqc'] != -1:
-				print('timestamp_argoqc mismatch at', xar['source'])
+				logmessage += 'timestamp_argoqc mismatch at ' + str(xar['source']) + '\n'
 
-		if p['fleetmonitoring'] != 'https://fleetmonitoring.euro-argo.eu/float/' + str(p['platform_id']):
-			print('fleetmonitoring mismatch at', xar['source'])
+		if m['fleetmonitoring'] != 'https://fleetmonitoring.euro-argo.eu/float/' + str(m['platform']):
+			logmessage += 'fleetmonitoring mismatch at ' + str(xar['source']) + '\n'
 
-		if p['oceanops'] != 'https://www.ocean-ops.org/board/wa/Platform?ref=' + str(p['platform_id']):
-			print('oceanops mismatch at', xar['source'])
+		if m['oceanops'] != 'https://www.ocean-ops.org/board/wa/Platform?ref=' + str(m['platform']):
+			logmessage += 'oceanops mismatch at ' + str(xar['source']) + '\n'
 
 		if 'PLATFORM_TYPE' in list(xar['data'].variables):
-			if p['platform_type'] != xar['data']['PLATFORM_TYPE'].to_dict()['data'][0].decode('UTF-8').strip():
-				print('platform_type mismatch at', xar['source'])
+			if m['platform_type'] != xar['data']['PLATFORM_TYPE'].to_dict()['data'][0].decode('UTF-8').strip():
+				logmessage += 'platform_type mismatch at ' + str(xar['source']) + '\n'
 
 		if 'POSITIONING_SYSTEM' in list(xar['data'].variables):
-			if p['positioning_system'] != xar['data']['POSITIONING_SYSTEM'].to_dict()['data'][0].decode('UTF-8').strip():
-				print('positioning_system mismatch at', xar['source'])
+			if m['positioning_system'] != xar['data']['POSITIONING_SYSTEM'].to_dict()['data'][0].decode('UTF-8').strip():
+				logmessage += 'positioning_system mismatch at ' + str(xar['source']) + '\n'
 
 		if 'VERTICAL_SAMPLING_SCHEME' in list(xar['data'].variables):
 			if p['vertical_sampling_scheme'] != xar['data']['VERTICAL_SAMPLING_SCHEME'].to_dict()['data'][0].decode('UTF-8').strip():
-				print('vertical_sampling_scheme mismatch at', xar['source'])
+				logmessage += 'vertical_sampling_scheme mismatch at ' + str(xar['source']) + '\n'
 
 		if 'WMO_INST_TYPE' in list(xar['data'].variables):
-			if p['wmo_inst_type'] != xar['data']['WMO_INST_TYPE'].to_dict()['data'][0].decode('UTF-8').strip():
-				print('wmo_inst_type mismatch at', xar['source'])
+			if m['wmo_inst_type'] != xar['data']['WMO_INST_TYPE'].to_dict()['data'][0].decode('UTF-8').strip():
+				logmessage += 'wmo_inst_type mismatch at ' + str(xar['source']) + '\n'
 
 		# data validation - dont bother at this time if degenerate levels detected, buyer should very beware on those profiles
 		if ('data_warning' not in p) or ("degenerate_levels" not in p['data_warning']):
@@ -174,8 +187,7 @@ while True:
 					nc_pressure = xar['data']['PRES'].to_dict()['data'][0]
 					nc_pressure_label = 'PRES'
 				else:
-					print('unrecognized DATA_MODE for', xar['source'])
-
+					logmessage += 'unrecognized DATA_MODE for ' + str(xar['source']) + '\n'
 				nc_data = list(zip(*[xar['data'][var].to_dict()['data'][0] for var in data_sought])) # all the upstream data, packed in a list of levels (sorted by original nc sort order, not necessarily depth), each of which is a list of values sorted as data_sought
 				for level in nc_data:
 					pressure = h.cleanup(level[data_sought.index(nc_pressure_label)])
@@ -184,14 +196,14 @@ while True:
 					elif pressure in p_lookup:
 						for nc_key in data_sought:
 							nc_val = h.cleanup(level[data_sought.index(nc_key)])
-							av_idx = p['data_keys'].index(h.argo_keymapping(nc_key))
+							av_idx = data_keys.index(h.argo_keymapping(nc_key))
 							av_val = p_lookup[pressure][av_idx]
 							if nc_val != av_val:
-								print(f'data mismatch at {nc_key} and pressure {pressure} in {xar["source"]}')
+								logmessage += f'data mismatch at {nc_key} and pressure {pressure} in {xar["source"]} \n'
 							else:
 								p_lookup[pressure].mask[av_idx] = True # mask out any measurements found in both nc and mongo
 					else:
-						print(f'pressure {pressure} not found in argovis profile from sourcefile {xar["source"]}')
+						logmessage += f'pressure {pressure} not found in argovis profile from sourcefile {xar["source"]}\n'
 
 			elif prefix in ['SD', 'SR']:
 				# check bgc / synth data
@@ -206,7 +218,7 @@ while True:
 						# use unadjusted data
 						data_sought.extend([var[1],var[1]+'_QC'])
 					else:
-						print('error: unexpected data mode detected for', var[1])
+						logmessage += 'error: unexpected data mode detected for ' + str(var[1]) + '\n'
 				if 'PRES_ADJUSTED' in data_sought:
 					nc_pressure = xar['data']['PRES_ADJUSTED'].to_dict()['data'][0]
 					nc_pressure_label = 'PRES_ADJUSTED'
@@ -214,7 +226,7 @@ while True:
 					nc_pressure = xar['data']['PRES'].to_dict()['data'][0]
 					nc_pressure_label = 'PRES'
 				else:
-					print('no pressure variable found')
+					logmessage += 'no pressure variable found\n'
 
 				nc_data = list(zip(*[xar['data'][var].to_dict()['data'][0] for var in data_sought])) # all the upstream data, packed in a list of levels (sorted by original nc sort order, not necessarily depth), each of which is a list of values sorted as data_sought
 				for level in nc_data:
@@ -224,26 +236,26 @@ while True:
 					elif pressure in p_lookup:
 						for nc_key in data_sought:
 							nc_val = h.cleanup(level[data_sought.index(nc_key)])
-							av_idx = p['data_keys'].index(h.argo_keymapping(nc_key).replace('temp', 'temp_sfile').replace('psal', 'psal_sfile'))
+							av_idx = data_keys.index(h.argo_keymapping(nc_key).replace('temperature', 'temperature_sfile').replace('salinity', 'salinity_sfile'))
 							av_val = p_lookup[pressure][av_idx]
 							if nc_val != av_val:
-								print(f'data mismatch at {nc_key} and pressure {pressure} in {xar["source"]}')
+								logmessage += f'data mismatch at {nc_key} and pressure {pressure} in {xar["source"]}\n'
 							else:
 								p_lookup[pressure].mask[av_idx] = True # mask out any measurements found in both nc and mongo
 					else:
-						print(f'pressure {pressure} not found in argovis profile from sourcefile {xar["source"]}')
+						logmessage += f'pressure {pressure} not found in argovis profile from sourcefile {xar["source"]}\n'
 			else:
-				print(f'unexpected prefix {prefix} found')
+				logmessage += f'unexpected prefix {prefix} found\n'
 
 			if max(nc_pressure) > 2500:
 				si['source'].append('argo_deep')
 		else:
-			print('warning: degenerate_levels detected, data array not rechecked')
+			logmessage += 'warning: degenerate_levels detected, data array not rechecked\n'
 
-		if si not in p['source_info']:
-			print('source_info mismatch at', xar['source'])
-			print('mongo source_info:', p['source_info'])
-			print('.nc source_info:', si)
+		if si not in p['source']:
+			logmessage += 'source mismatch at ' + str(xar['source']) + '\n'
+			logmessage += 'mongo source: ' + str(p['source']) + '\n'
+			logmessage += '.nc source: ' + str(si) + '\n'
 
 	# if the argovis profile matches the netcdf exactly, then p_lookup should have nothing but masked values and Nones left:
 	if ('data_warning' not in p) or ("degenerate_levels" not in p['data_warning']):
@@ -251,8 +263,17 @@ while True:
 			if not p_lookup[level].mask.all():
 				leftovers = p_lookup[level][p_lookup[level].mask == False]
 				if not all(v is None for v in leftovers):
-					print(f'unmasked, non-None value in {p_lookup[level]} at profile {p["_id"]}')
-					print(p['data_keys'])
+					logmessage += f'unmasked, non-None value in {p_lookup[level]} at profile {p["_id"]}\n'
+					logmessage += str(p['data_keys']) + '\n'
+
+	if len(logmessage) != lenlog:
+		print(logmessage)
+	else:
+		f = open('/tmp/roundtrip', 'a')
+		f.write(logmessage)
+		f.close()
 
 	for f in glob.glob("*.nc"):
 		os.remove(f)
+
+	time.sleep(60)
