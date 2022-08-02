@@ -6,3 +6,4 @@ find /ifremer -type f > x
 grep '\/profiles\/.*\.nc' x > xx
 grep -v 'profiles/B' xx > xxx
 python freshrebuild.py xxx
+sort /tmp/profileUpdates.txt | uniq > /tmp/profiles2translate
