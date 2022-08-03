@@ -264,7 +264,7 @@ while True:
 				leftovers = p_lookup[level][p_lookup[level].mask == False]
 				if not all(v is None for v in leftovers):
 					logmessage += f'unmasked, non-None value in {p_lookup[level]} at profile {p["_id"]}\n'
-					logmessage += str(p['data_keys']) + '\n'
+					logmessage += str(data_keys) + '\n'
 
 	if len(logmessage) != lenlog:
 		print(logmessage)
