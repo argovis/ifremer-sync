@@ -15,4 +15,4 @@ sort /tmp/profileUpdates.txt | uniq > /tmp/temp && mv /tmp/temp ${logdir}/update
 while read i ; do python translateProfile.py $i >> ${logdir}/updatedprofiles.log 2>&1 ; done < ${logdir}/updatedprofiles
 
 # once loading complete, kick off summary precomputation
-python summary-computation.py
+#python summary-computation.py

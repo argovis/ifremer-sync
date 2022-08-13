@@ -37,7 +37,7 @@ spec:
                 limits:
                   memory: 2Gi
                   cpu: 1000m
-          restartPolicy: OnFailure
+          restartPolicy: Never
           securityContext:
             runAsUser: 1000660000
             runAsGroup: 1000660000
