@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ifremer-sync-redo
+  labels:
+    tier: api
+spec:
+  volumes:
+    - name: ifremer-mirror
+      persistentVolumeClaim:
+        claimName: ifremer-mirror
+    - name: logs
+      persistentVolumeClaim:
+        claimName: logs
+  containers:
+  - name: sync
+    imagePullPolicy: Always
+    image: argovis/ifremer-sync:dev
+    command: ['bash', 'ifremer-sync-redo.sh', '/logs/ifremer/synclog-20220819T070444']
+    volumeMounts:
+      - mountPath: "/ifremer"
+        name: ifremer-mirror
+      - mountPath: "/logs"
+        name: logs
+    resources:
+      requests:
+        memory: "0Gi"
+        cpu: "0m"
+      limits:
+        memory: 2Gi
+        cpu: 1000m
+  restartPolicy: Never
