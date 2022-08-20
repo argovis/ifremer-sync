@@ -24,3 +24,7 @@ If for some reason the rsync'ed mirror is intact but the mongo collections need 
 Consider parallelizing this by slicing `/tmp/profiles2translate` into equal parts and running one per pod, for example as in `devpod.yaml`.
 
 Note also `testload.sh` has some simple fault tolerance built in, and will try to keep track of progress and resume after an interrupt; checking profiles immediately before and after these breakpoints is the first place to look if an unexpected(ly small) number of profiles appear in the final collection rebuild.
+
+## Manually redo a failed nightly update
+
+If something interrupts a nightly update that finished rsync'ing and parsing the rsync log but was interrupted during the mongo load, best to suspend the cronjob and redo that evening's update; see `redo-sync.yaml` for a pod to manage `ifremer-sync-redo.sh`, which takes the existing `updatedprofiles` list in the logging directory you must specify in the yaml file's command, and reruns the corresponding uploads to mongo.
