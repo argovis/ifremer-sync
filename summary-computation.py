@@ -5,31 +5,122 @@ import datetime
 client = MongoClient('mongodb://database/argo')
 db = client.argo
 
-# what Argo platforms have BGC data? Response to /platforms/bgc
-bgcs = [
-    {'$match': {'source_info.source':'argo_bgc' }}, 
-    {'$project': {'platform_id':1}}, 
-    {'$group': {'_id':'$platform_id'}}
+# dac summary, response to /argo/dacs
+dacs = [
+    {
+       "$lookup":
+         {
+           "from": "argo",
+           "localField": "_id",
+           "foreignField": "metadata",
+           "pipeline": [
+            {"$project": { "timestamp": 1 }},
+            {"$sort": {"timestamp":-1}}
+           ],
+           "as": "data"
+         }
+    },
+    {
+        "$project":{
+            "data_center": "$data_center",
+            "n": {"$size": "$data"},
+            "mostrecent": {"$first": "$data.timestamp"}
+        }
+    },
+    {
+        "$group":{
+            "_id": "$data_center",
+            "n": {"$sum": "$n"},
+            "mostrecent": {"$max": "$mostrecent"}
+        }
+    }
 ]
-bgc = db.profiles.aggregate(bgcs)
-## write to mongo
+dacs = list(db.argoMeta.aggregate(dacs))
 try:
-    db.summaries.replace_one({"_id": 'argo_bgc'}, {"_id": 'argo_bgc', "summary":{"platforms":list(bgc)}}, upsert=True)
+    db.summaries.replace_one({"_id": 'argo_dacs'}, {"_id": 'argo_dacs', "summary":dacs}, upsert=True)
 except BaseException as err:
     print('error: db write failure')
     print(err)
-    print(list(bgc))
+    print(dacs)
 
-# summary stats for each data center; response to /dacs
-dacsummary = [
-    {'$sort': SON([('data_center',1), ('timestamp',-1)])}, 
-    {'$group': {'_id': '$data_center','number_of_profiles': {'$sum':1}, 'most_recent_date':{'$first':'$timestamp'}}}  
+# bgc summary, response to /argo/bgc
+bgc = [
+    {
+       "$lookup":
+         {
+           "from": "argo",
+           "localField": "_id",
+           "foreignField": "metadata",
+           "pipeline": [
+            {"$match": {"source.source":"argo_bgc"}},
+            {"$project": { "timestamp": 1 }},
+            {"$sort": {"timestamp":-1}}
+           ],
+           "as": "data"
+         }
+    },
+    {
+        "$project":{
+            "platform": "$platform",
+            "n": {"$size": "$data"},
+            "mostrecent": {"$first": "$data.timestamp"}
+        }
+    },
+    {
+        "$group":{
+            "_id": "$platform",
+            "n": {"$sum": "$n"},
+            "mostrecent": {"$max": "$mostrecent"}
+        }
+    },
+    {"$match": {"n":{"$gt":0}}}
 ]
-dacs = db.profiles.aggregate(dacsummary)
+bgc = list(db.argoMeta.aggregate(bgc))
 try:
-    db.summaries.replace_one({"_id": 'dacs'}, {"_id": 'dacs', "summary": {"dacs": list(dacs)}}, upsert=True)
+    db.summaries.replace_one({"_id": 'argo_bgc'}, {"_id": 'argo_bgc', "summary":bgc}, upsert=True)
 except BaseException as err:
     print('error: db write failure')
     print(err)
-    print(list(dacs))
+    print(bgc)
+
+# data_keys enumerations
+def enumerate_data_keys(collection):
+    data_keys = []
+    if collection!='grid':
+        # all data keys are in gridMeta, and there is no actual collection called 'grid'
+        data_keys = list(db[collection].distinct('data_keys'))
+    data_keys_meta = list(db[collection+'Meta'].distinct('data_keys'))
+    data_keys = list(set(data_keys + data_keys_meta))
+    data_keys.sort()
+    try:
+        db.summaries.replace_one({"_id": collection+'_data_keys'}, {"_id": collection+'_data_keys', "data_keys":data_keys}, upsert=True)
+    except BaseException as err:
+        print('error: db write failure')
+        print(err)
+        print(data_keys)
+
+enumerate_data_keys('argo')
+enumerate_data_keys('cchdo')
+enumerate_data_keys('drifter')
+enumerate_data_keys('tc')
+enumerate_data_keys('grid')
+
+# /argo/overview
+argo_overview = {
+    "nCore": db.argo.count_documents({"source.source": "argo_core"}),
+    "nBGC": db.argo.count_documents({"source.source": "argo_bgc"}),
+    "nDeep": db.argo.count_documents({"source.source": "argo_deep"}),
+    "mostrecent": list(db.argo.aggregate([{"$sort":{"timestamp":-1}},{"$limit":1}]))[0]['timestamp'],
+    "datacenters": [x['_id'] for x in dacs]
+}
+
+try:
+    db.summaries.replace_one({"_id": 'argo_overview'}, {"_id": 'argo_overview', "summary":argo_overview}, upsert=True)
+except BaseException as err:
+    print('error: db write failure')
+    print(err)
+    print(argo_overview)
+
+
+
 
