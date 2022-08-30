@@ -100,10 +100,10 @@ def enumerate_data_keys(collection):
         print(data_keys)
 
 enumerate_data_keys('argo')
-enumerate_data_keys('cchdo')
-enumerate_data_keys('drifter')
-enumerate_data_keys('tc')
-enumerate_data_keys('grid')
+#enumerate_data_keys('cchdo')
+#enumerate_data_keys('drifter')
+#enumerate_data_keys('tc')
+#enumerate_data_keys('grid')
 
 # /argo/overview
 argo_overview = {
