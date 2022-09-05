@@ -121,6 +121,14 @@ except BaseException as err:
     print(err)
     print(argo_overview)
 
+# ----- index preheats ------------
+
+poly = {"$geoWithin": {"$geometry": {"type": "Polygon","coordinates": [[[-135,40],[-135,45],[-130,45],[-130,40],[-135,40]]]}}}
+time = {"$gte": ISODate('2018-11-06T00:00:00Z'), "$lt": ISODate('2018-11-07T00:00:00Z')}
+
+preheat = list(db.argo.aggregate([{'$match': {geolocation: poly}}])) # argo geolocation index
+preheat = list(db.argo.aggregate([{'$match': {timestamp: time}}]))   # argo timestamp index
+preheat = list(db.argo.aggregate([{'$match': {geolocation: poly, timestamp:time}}])) # argo timestamp x geolocation index, as optimized by .explain()
 
 
 
