@@ -124,11 +124,13 @@ except BaseException as err:
 # ----- index preheats ------------
 
 poly = {"$geoWithin": {"$geometry": {"type": "Polygon","coordinates": [[[-135,40],[-135,45],[-130,45],[-130,40],[-135,40]]]}}}
-time = {"$gte": ISODate('2018-11-06T00:00:00Z'), "$lt": ISODate('2018-11-07T00:00:00Z')}
+time = {"$gte": datetime.datetime.strptime('2018-11-06T00:00:00Z', "%Y-%m-%dT%H:%M:%SZ"), "$lt": datetime.datetime.strptime('2018-11-07T00:00:00Z', "%Y-%m-%dT%H:%M:%SZ")}
 
 preheat = list(db.argo.aggregate([{'$match': {geolocation: poly}}])) # argo geolocation index
 preheat = list(db.argo.aggregate([{'$match': {timestamp: time}}]))   # argo timestamp index
 preheat = list(db.argo.aggregate([{'$match': {geolocation: poly, timestamp:time}}])) # argo timestamp x geolocation index, as optimized by .explain()
-
+preheat = list(db.cchdo.aggregate([{'$match': {geolocation: poly}}])) # similar for cchdo
+preheat = list(db.cchdo.aggregate([{'$match': {timestamp: time}}]))
+preheat = list(db.cchdo.aggregate([{'$match': {geolocation: poly, timestamp:time}}]))
 
 
