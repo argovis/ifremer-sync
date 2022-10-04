@@ -7,7 +7,7 @@ This repo contains the scripts and documentation needed to re-sync the entire Ar
  - Required volumes:
    - `ifremer-mirror`: contains the files synced from ifremer.
    - `logs`: scratch space for storing logs.
- - Set up as a cronjob using `ifremer-cron.yaml`; will sync nightly.
+ - Set up as a cronjob in kube using `ifremer-cron.yaml`; will sync nightly. Or use `ifremer-cron.sh` as a script to run via refular cron if running on a bare, non-kube server.
 
 ## Integrity checking
 
