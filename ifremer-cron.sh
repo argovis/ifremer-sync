@@ -6,5 +6,5 @@ if test -f "/home/ubuntu/ifremerlock"; then
 fi
 
 touch /home/ubuntu/ifremerlock
-docker container run  --network argovis-db --name ifremer-nightly -v /home/ubuntu/ifremer:/ifremer -v /home/ubuntu/logs:/logs -d argovis/ifremer-sync:nightly bash ifremer-sync.sh
+docker container run --rm  --network argovis-db --name ifremer-nightly -v /home/ubuntu/ifremer:/ifremer -v /home/ubuntu/logs:/logs -d argovis/ifremer-sync:nightly bash ifremer-sync.sh
 rm /home/ubuntu/ifremerlock
