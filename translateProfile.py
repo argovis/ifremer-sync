@@ -36,7 +36,7 @@ for key in dataCopy:
 	if key in metadata:
 		argo[key] = metadata[key]
 argo['data'] = data['data']
-argo['data_keys_mode'] = data['data_keys_mode']
+#argo['data_keys_mode'] = data['data_keys_mode']
 ## append data warnings to argo["data_warnings"] object
 if "degenerate_levels" in data["data_annotation"] and data["data_annotation"]["degenerate_levels"]:
 	if "data_warning" not in argo:
@@ -44,14 +44,25 @@ if "degenerate_levels" in data["data_annotation"] and data["data_annotation"]["d
 	if "degenerate_levels" not in argo["data_warning"]:
 		argo["data_warning"].append("degenerate_levels")
 
-# determine if this is a BGC profile, and assign data_keya and units accordingly
-sources = [item for sublist in [x['source'] for x in argo['source']] for item in sublist]
-if 'argo_bgc' in sources:
-	argo['data_keys'] = data['data_keys']
-	argo['units'] = data['units']
-else:
-	argoMeta['data_keys'] = data['data_keys']
-	argoMeta['units'] = data['units']
+# # determine if this is a BGC profile, and assign data_keya and units accordingly
+# sources = [item for sublist in [x['source'] for x in argo['source']] for item in sublist]
+# if 'argo_bgc' in sources:
+# 	argo['data_keys'] = data['data_keys']
+# 	argo['units'] = data['units']
+# else:
+# 	argoMeta['data_keys'] = data['data_keys']
+# 	argoMeta['units'] = data['units']
+
+# transpose argo.data
+argo['data'] = {data['data_keys'][i]: list(x) for i, x in enumerate(zip(*argo['data']))}
+
+# construct meta matrix: [[row label i],[column label j],[[matrix element i, martix element j]]]
+argo['measurement_metadata'] = [
+	data['data_keys'],
+	['units', 'data_keys_mode']
+]
+argo['measurement_metadata'].append([list(k) for k in zip(data['units'], data['data_keys_mode'])])
+
 
 # determine if an appropriate pre-existing metadata record exists, and upsert metadata if required
 try:
