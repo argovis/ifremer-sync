@@ -54,7 +54,7 @@ if "degenerate_levels" in data["data_annotation"] and data["data_annotation"]["d
 # 	argoMeta['units'] = data['units']
 
 # transpose argo.data
-argo['data'] = {data['data_keys'][i]: list(x) for i, x in enumerate(zip(*argo['data']))}
+argo['data'] = [list(x) for i, x in enumerate(zip(*argo['data']))]
 
 # construct meta matrix: [[row label i],[column label j],[[matrix element i, martix element j]]]
 argo['measurement_metadata'] = [
