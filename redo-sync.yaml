@@ -6,9 +6,9 @@ metadata:
     tier: api
 spec:
   volumes:
-    - name: ifremer-mirror
+    - name: argovis-bulk
       persistentVolumeClaim:
-        claimName: ifremer-mirror
+        claimName: argovis-bulk
     - name: logs
       persistentVolumeClaim:
         claimName: logs
@@ -16,10 +16,10 @@ spec:
   - name: sync
     imagePullPolicy: Always
     image: argovis/ifremer-sync:dev
-    command: ['bash', 'ifremer-sync-redo.sh', '/logs/ifremer/synclog-20220819T070444']
+    command: ['bash', 'ifremer-sync-redo.sh', '/logs/ifremer/synclog-20230206T100328']
     volumeMounts:
-      - mountPath: "/ifremer"
-        name: ifremer-mirror
+      - mountPath: "/bulk"
+        name: argovis-bulk
       - mountPath: "/logs"
         name: logs
     resources:

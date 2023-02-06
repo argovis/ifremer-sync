@@ -57,12 +57,11 @@ if "degenerate_levels" in data["data_annotation"] and data["data_annotation"]["d
 argo['data'] = [list(x) for i, x in enumerate(zip(*argo['data']))]
 
 # construct meta matrix: [[row label i],[column label j],[[matrix element i, martix element j]]]
-argo['measurement_metadata'] = [
+argo['data_info'] = [
 	data['data_keys'],
 	['units', 'data_keys_mode']
 ]
-argo['measurement_metadata'].append([list(k) for k in zip(data['units'], data['data_keys_mode'])])
-
+argo['data_info'].append([list(k) for k in zip(data['units'], data['data_keys_mode'])])
 
 # determine if an appropriate pre-existing metadata record exists, and upsert metadata if required
 try:
@@ -74,7 +73,7 @@ except BaseException as err:
     print('error: metadata upsert failure on', argoMeta)
     print(err)
 
-argo['metadata'] = argoMeta['_id']
+argo['metadata'] = [argoMeta['_id']]
 # write data record to mongo
 try:
 	#print(argo)
