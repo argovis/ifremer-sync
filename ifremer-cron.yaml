@@ -3,7 +3,7 @@ kind: CronJob
 metadata:
   name: ifremer-sync
 spec:
-  schedule: "0 7 * * 0,1,2,3,5,6"
+  schedule: "0 10 * * 0,1,2,3,5,6"
   concurrencyPolicy: Forbid
   jobTemplate:
     spec:
@@ -14,9 +14,9 @@ spec:
             tier: api
         spec:
           volumes:
-            - name: ifremer-mirror
+            - name: argovis-bulk
               persistentVolumeClaim:
-                claimName: ifremer-mirror
+                claimName: argovis-bulk
             - name: logs
               persistentVolumeClaim:
                 claimName: logs
@@ -26,8 +26,8 @@ spec:
               command: ['bash', 'ifremer-sync.sh']
               imagePullPolicy: Always
               volumeMounts:
-                - mountPath: "/ifremer"
-                  name: ifremer-mirror
+                - mountPath: "/bulk"
+                  name: argovis-bulk
                 - mountPath: "/logs"
                   name: logs
               resources:

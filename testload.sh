@@ -11,3 +11,6 @@ do
 	python translateProfile.py $i 2>&1 >> ${1}/${2}-logs
 	sed -i "1 d" ${1}/${2}-todo
 done < ${1}/${2}-todo
+
+
+
