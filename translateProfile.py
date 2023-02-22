@@ -79,5 +79,5 @@ try:
 	#print(argo)
     db.argo.replace_one({'_id': argo['_id']}, argo, True)
 except BaseException as err:
-    print('error: data upsert failure on', argoMeta)
+    print('error: data upsert failure on', argo)
     print(err)
