@@ -14,23 +14,12 @@ while True:
 
 	# get a random profile, or pick one by ID
 	p = list(db.argo.aggregate([{"$sample": {"size": 1}}]))[0]
-	#p = list(db.argo.find({"_id":"5903717_309"}))[0]
-	m = list(db.argoMeta.find({"_id":p['metadata']}))[0]
+	#p = list(db.argo.find({"_id":"5906028_072"}))[0]
+	m = list(db.argoMeta.find({"_id":p['metadata'][0]}))[0]
 	logmessage += 'Checking profile id ' + str(p['_id']) + '\n'
 
-	# identify data_keys
-	data_keys = []
-	if 'data_keys' in p:
-		data_keys = p['data_keys']
-	elif 'data_keys' in m:
-		data_keys = m['data_keys']
-	else:
-		logmessage += 'no valid data_keys found, aborting.'
-		print(logmessage)
-		continue
-
-	# transform argovis profile data into pressure-keyed lookup table of levels with values sorted as data_keys. Levels are initialized as masked arrays with no elements masked.
-	p_lookup = {level[data_keys.index('pressure')]: ma.masked_array(level, [False]*len(level)) for level in p['data']} 
+	# transform argovis profile data into dictionary of masked arrays with no elements masked.
+	p_lookup = {var: ma.masked_array(p['data'][i], [False]*len(p['data'][i])) for i, var in enumerate(p['data_info'][0])}
 	nc = []
 
 	# open all upstream netcdf files asociated with the profile; give up on read errors.
@@ -50,13 +39,13 @@ while True:
 		print(logmessage)
 		continue
 
-	# make sure nothing has been updated in the last 24h, otherwise move on
+	# make sure nothing has been updated in the last 48h, otherwise move on
 	toosoon = False
 	for xar in nc:
-		# bail out if file was updated in the last 24 h
+		# bail out if file was updated in the last 48 h
 		ifremer_update = datetime.datetime.strptime(xar['data']['DATE_UPDATE'].to_dict()['data'].decode('UTF-8'),'%Y%m%d%H%M%S')
-		if datetime.datetime.now() - datetime.timedelta(hours=24) <= ifremer_update:
-			logmessage += 'profile updated at ifremer in the last day, skipping validation of ' + str(xar['source']) + ' and related files.\n'
+		if datetime.datetime.now() - datetime.timedelta(hours=48) <= ifremer_update:
+			logmessage += 'profile updated at ifremer in the last 48h, skipping validation of ' + str(xar['source']) + ' and related files.\n'
 			bailout = True
 	if toosoon:
 		print(logmessage)
@@ -188,22 +177,21 @@ while True:
 					nc_pressure_label = 'PRES'
 				else:
 					logmessage += 'unrecognized DATA_MODE for ' + str(xar['source']) + '\n'
-				nc_data = list(zip(*[xar['data'][var].to_dict()['data'][0] for var in data_sought])) # all the upstream data, packed in a list of levels (sorted by original nc sort order, not necessarily depth), each of which is a list of values sorted as data_sought
-				for level in nc_data:
-					pressure = h.cleanup(level[data_sought.index(nc_pressure_label)])
-					if pressure is None:
-						continue # summarily drop any level that doesn't have a meaningful pressure
-					elif pressure in p_lookup:
-						for nc_key in data_sought:
-							nc_val = h.cleanup(level[data_sought.index(nc_key)])
-							av_idx = data_keys.index(h.argo_keymapping(nc_key))
-							av_val = p_lookup[pressure][av_idx]
-							if nc_val != av_val:
-								logmessage += f'data mismatch at {nc_key} and pressure {pressure} in {xar["source"]} \n'
+				
+				nc_data = {h.argo_keymapping(nc_key): [h.cleanup(x) for x in xar['data'][nc_key].to_dict()['data'][0]] for nc_key in data_sought} # upstream data, packed and cleaned like an argovis data key
+				for key, nc_vals in nc_data.items():
+					for i in range(len(nc_vals)):
+						pressure = h.cleanup(nc_pressure[i])
+						if pressure is None:
+							continue
+						elif pressure in p_lookup['pressure'].data.tolist():
+							pindex = p_lookup['pressure'].data.tolist().index(pressure)
+							if nc_vals[i] != p_lookup[key][pindex]:
+								logmessage += f'data mismatch at {key} and pressure {pressure} in {xar["source"]} \n'
 							else:
-								p_lookup[pressure].mask[av_idx] = True # mask out any measurements found in both nc and mongo
-					else:
-						logmessage += f'pressure {pressure} not found in argovis profile from sourcefile {xar["source"]}\n'
+								p_lookup[key].mask[pindex] = True
+						else:
+							logmessage += f'pressure {pressure} not found in argovis profile from sourcefile {xar["source"]}\n'
 
 			elif prefix in ['SD', 'SR']:
 				# check bgc / synth data
@@ -228,22 +216,20 @@ while True:
 				else:
 					logmessage += 'no pressure variable found\n'
 
-				nc_data = list(zip(*[xar['data'][var].to_dict()['data'][0] for var in data_sought])) # all the upstream data, packed in a list of levels (sorted by original nc sort order, not necessarily depth), each of which is a list of values sorted as data_sought
-				for level in nc_data:
-					pressure = h.cleanup(level[data_sought.index(nc_pressure_label)])
-					if pressure is None:
-						continue # summarily drop any level that doesn't have a meaningful pressure
-					elif pressure in p_lookup:
-						for nc_key in data_sought:
-							nc_val = h.cleanup(level[data_sought.index(nc_key)])
-							av_idx = data_keys.index(h.argo_keymapping(nc_key).replace('temperature', 'temperature_sfile').replace('salinity', 'salinity_sfile'))
-							av_val = p_lookup[pressure][av_idx]
-							if nc_val != av_val:
-								logmessage += f'data mismatch at {nc_key} and pressure {pressure} in {xar["source"]}\n'
+				nc_data = {h.argo_keymapping(nc_key).replace('temperature', 'temperature_sfile').replace('salinity', 'salinity_sfile'): [h.cleanup(x) for x in xar['data'][nc_key].to_dict()['data'][0]] for nc_key in data_sought} # upstream data, packed and cleaned like an argovis data key
+				for key, nc_vals in nc_data.items():
+					for i in range(len(nc_vals)):
+						pressure = h.cleanup(nc_pressure[i])
+						if pressure is None:
+							continue
+						elif pressure in p_lookup['pressure'].data.tolist():
+							pindex = p_lookup['pressure'].data.tolist().index(pressure)
+							if nc_vals[i] != p_lookup[key][pindex]:
+								logmessage += f'data mismatch at {key} and pressure {pressure} in {xar["source"]} \n'
 							else:
-								p_lookup[pressure].mask[av_idx] = True # mask out any measurements found in both nc and mongo
-					else:
-						logmessage += f'pressure {pressure} not found in argovis profile from sourcefile {xar["source"]}\n'
+								p_lookup[key].mask[pindex] = True
+						else:
+							logmessage += f'pressure {pressure} not found in argovis profile from sourcefile {xar["source"]}\n'
 			else:
 				logmessage += f'unexpected prefix {prefix} found\n'
 
@@ -259,12 +245,12 @@ while True:
 
 	# if the argovis profile matches the netcdf exactly, then p_lookup should have nothing but masked values and Nones left:
 	if ('data_warning' not in p) or ("degenerate_levels" not in p['data_warning']):
-		for level in p_lookup:
-			if not p_lookup[level].mask.all():
-				leftovers = p_lookup[level][p_lookup[level].mask == False]
+		for var in p_lookup:
+			if not p_lookup[var].mask.all():
+				leftovers = p_lookup[var][p_lookup[var].mask == False]
 				if not all(v is None for v in leftovers):
-					logmessage += f'unmasked, non-None value in {p_lookup[level]} at profile {p["_id"]}\n'
-					logmessage += str(data_keys) + '\n'
+					logmessage += f'unmasked, non-None value in {var}: {p_lookup[var]} at profile {p["_id"]}\n'
+
 
 	if len(logmessage) != lenlog:
 		print(logmessage)
