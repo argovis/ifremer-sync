@@ -14,12 +14,16 @@ while True:
 
 	# get a random profile, or pick one by ID
 	p = list(db.argo.aggregate([{"$sample": {"size": 1}}]))[0]
-	#p = list(db.argo.find({"_id":"5906028_072"}))[0]
+	#p = list(db.argo.find({"_id":"4900549_182"}))[0]
 	m = list(db.argoMeta.find({"_id":p['metadata'][0]}))[0]
 	logmessage += 'Checking profile id ' + str(p['_id']) + '\n'
 
 	# transform argovis profile data into dictionary of masked arrays with no elements masked.
-	p_lookup = {var: ma.masked_array(p['data'][i], [False]*len(p['data'][i])) for i, var in enumerate(p['data_info'][0])}
+	if len(p['data']) == len(p['data_info'][0]):
+		p_lookup = {var: ma.masked_array(p['data'][i], [False]*len(p['data'][i])) for i, var in enumerate(p['data_info'][0])}
+	else:
+		# some cases where data array is empty, ie if everything was a nan upstream
+		p_lookup = {var: ma.masked_array([],[]) for i, var in enumerate(p['data_info'][0])}
 	nc = []
 
 	# open all upstream netcdf files asociated with the profile; give up on read errors.
