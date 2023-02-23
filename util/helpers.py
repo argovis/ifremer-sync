@@ -236,7 +236,7 @@ def extract_metadata(ncfile, pidx=0):
         metadata['source'][0]['source'].append('argo_deep')
 
     ### source.url
-    metadata['source'][0]['url'] = 'ftp://ftp.ifremer.fr/ifremer/argo/dac/' + ncfile[9:]
+    metadata['source'][0]['url'] = 'ftp://ftp.ifremer.fr/ifremer/argo/dac/' + ncfile[14:]
 
     ### source.date_updated
     metadata['source'][0]['date_updated'] = datetime.datetime.strptime(xar['DATE_UPDATE'].to_dict()['data'].decode('UTF-8'),'%Y%m%d%H%M%S')
