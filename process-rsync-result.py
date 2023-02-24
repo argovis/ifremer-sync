@@ -1,4 +1,4 @@
-# usage: see process-rsync-result.sh
+# usage: see ifremer-sync.sh
 import sys
 import util.helpers as h
 from pymongo import MongoClient
@@ -22,7 +22,7 @@ with open(sys.argv[1], 'r') as filelist:
 		else:
 			print('to be deleted: _id', tokens[4]+'_'+prof_number)
 			try:
-				db.profiles.delete_one({"_id": tokens[4]+'_'+prof_number})
+				db.argo.delete_one({"_id": tokens[4]+'_'+prof_number})
 			except BaseException as err:
 				print('error: failed to delete', tokens[4]+'_'+prof_number)
 				print(err)
