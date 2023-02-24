@@ -8,7 +8,7 @@ rsync -avzhi --delete --omit-dir-times --no-perms vdmzrs.ifremer.fr::argo/ /bulk
 
 # extract set of profiles to CRUD
 grep '\/profiles\/.*\.nc' ${logdir}/rsynclog | tr -s ' ' | cut -d ' ' -f 2 | sed 's|^|/bulk/ifremer/|g' > ${logdir}/updatedprofiles # updatedprofiles == list of changed .nc files, one per line
-python process-rsync-result.py ${logdir}/updatedprofiles
+python process-rsync-result.py ${logdir}/updatedprofiles > ${logdir}/process-rsync.log
 sort /tmp/profileUpdates.txt | uniq > /tmp/temp && mv /tmp/temp ${logdir}/updatedprofiles # updatedprofiles grouped one profile per line, ie core and synth files combined on one line per profile
 
 # load profiles, with logging
