@@ -6,9 +6,9 @@ metadata:
     tier: api
 spec:
   volumes:
-    - name: ifremer-mirror
+    - name: argovis-bulk
       persistentVolumeClaim:
-        claimName: ifremer-mirror
+        claimName: argovis-bulk
     - name: logs
       persistentVolumeClaim:
         claimName: logs
@@ -25,8 +25,8 @@ spec:
     # command: ['bash', 'testload.sh', '/logs', 'xaf']
     #command: ['bash', 'testload.sh', '/logs', 'xag']
     volumeMounts:
-      - mountPath: "/ifremer"
-        name: ifremer-mirror
+      - mountPath: "/bulk"
+        name: argovis-bulk
       - mountPath: "/logs"
         name: logs
     resources:
