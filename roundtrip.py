@@ -50,7 +50,7 @@ while True:
 		ifremer_update = datetime.datetime.strptime(xar['data']['DATE_UPDATE'].to_dict()['data'].decode('UTF-8'),'%Y%m%d%H%M%S')
 		if datetime.datetime.now() - datetime.timedelta(hours=48) <= ifremer_update:
 			logmessage += 'profile updated at ifremer in the last 48h, skipping validation of ' + str(xar['source']) + ' and related files.\n'
-			bailout = True
+			toosoon = True
 	if toosoon:
 		print(logmessage)
 		continue
