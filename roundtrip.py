@@ -239,13 +239,13 @@ while True:
 
 			if max(nc_pressure) > 2500:
 				si['source'].append('argo_deep')
+
+			if si not in p['source']:
+				logmessage += 'source mismatch at ' + str(xar['source']) + '\n'
+				logmessage += 'mongo source: ' + str(p['source']) + '\n'
+				logmessage += '.nc source: ' + str(si) + '\n'
 		else:
 			logmessage += 'warning: degenerate_levels detected, data array not rechecked\n'
-
-		if si not in p['source']:
-			logmessage += 'source mismatch at ' + str(xar['source']) + '\n'
-			logmessage += 'mongo source: ' + str(p['source']) + '\n'
-			logmessage += '.nc source: ' + str(si) + '\n'
 
 	# if the argovis profile matches the netcdf exactly, then p_lookup should have nothing but masked values and Nones left:
 	if ('data_warning' not in p) or ("degenerate_levels" not in p['data_warning']):

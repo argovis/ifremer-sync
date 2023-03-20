@@ -84,26 +84,14 @@ except BaseException as err:
     print(bgc)
 
 # data_keys enumerations
-def enumerate_data_keys(collection):
-    data_keys = []
-    if collection!='grid':
-        # all data keys are in gridMeta, and there is no actual collection called 'grid'
-        data_keys = list(db[collection].distinct('data_keys'))
-    data_keys_meta = list(db[collection+'Meta'].distinct('data_keys'))
-    data_keys = list(set(data_keys + data_keys_meta))
-    data_keys.sort()
-    try:
-        db.summaries.replace_one({"_id": collection+'_data_keys'}, {"_id": collection+'_data_keys', "data_keys":data_keys}, upsert=True)
-    except BaseException as err:
-        print('error: db write failure')
-        print(err)
-        print(data_keys)
-
-enumerate_data_keys('argo')
-#enumerate_data_keys('cchdo')
-#enumerate_data_keys('drifter')
-#enumerate_data_keys('tc')
-#enumerate_data_keys('grid')
+data_keys = list(db['argo'].distinct('data_info.0'))
+data_keys.sort()
+try:
+    db.summaries.replace_one({"_id": 'argo_data_keys'}, {"_id":'argo_data_keys', "data_keys":data_keys}, upsert=True)
+except BaseException as err:
+    print('error: db write failure')
+    print(err)
+    print(data_keys)
 
 # /argo/overview
 argo_overview = {
