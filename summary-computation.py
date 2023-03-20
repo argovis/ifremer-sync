@@ -99,6 +99,7 @@ argo_overview = {
     "nBGC": db.argo.count_documents({"source.source": "argo_bgc"}),
     "nDeep": db.argo.count_documents({"source.source": "argo_deep"}),
     "mostrecent": list(db.argo.aggregate([{"$sort":{"timestamp":-1}},{"$limit":1}]))[0]['timestamp'],
+    "latest_argovis_update": datetime.datetime.now(),
     "datacenters": [x['_id'] for x in dacs]
 }
 
