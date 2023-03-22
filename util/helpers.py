@@ -217,9 +217,17 @@ def extract_metadata(ncfile, pidx=0):
         #### deep
         DATA_MODE = xar['DATA_MODE'].to_dict()['data'][pidx].decode('UTF-8')
         if DATA_MODE in ['A', 'D']:
-            isDeep = max(xar['PRES_ADJUSTED'].to_dict()['data'][pidx]) > deepthresh
+            p = xar['PRES_ADJUSTED'].to_dict()['data'][pidx]
+            pqc = xar['PRES_ADJUSTED_QC'].to_dict()['data'][pidx]
+            pfilter = list(zip(p,pqc))
+            pfilter = [x[0] for x in pfilter if int(x[1].decode('UTF-8')) < 3]
+            isDeep = max(pfilter) > deepthresh
         elif DATA_MODE == 'R':
-            isDeep = max(xar['PRES'].to_dict()['data'][pidx]) > deepthresh
+            p = xar['PRES'].to_dict()['data'][pidx]
+            pqc = xar['PRES_QC'].to_dict()['data'][pidx]
+            pfilter = list(zip(p,pqc))
+            pfilter = [x[0] for x in pfilter if int(x[1].decode('UTF-8')) < 3]
+            isDeep = max(pfilter) > deepthresh
     elif prefix in ['SR', 'SD']:
         # bgc argo
         metadata['source'][0]['source'] = ['argo_bgc']
@@ -228,9 +236,17 @@ def extract_metadata(ncfile, pidx=0):
         STATION_PARAMETERS = [x.decode('UTF-8').strip() for x in xar['STATION_PARAMETERS'].to_dict()['data'][pidx]]
         pressure_mode = PARAMETER_DATA_MODE[STATION_PARAMETERS.index('PRES')]
         if pressure_mode in ['D', 'A']:
-            isDeep = max(xar['PRES_ADJUSTED'].to_dict()['data'][pidx]) > deepthresh
+            p = xar['PRES_ADJUSTED'].to_dict()['data'][pidx]
+            pqc = xar['PRES_ADJUSTED_QC'].to_dict()['data'][pidx]
+            pfilter = list(zip(p,pqc))
+            pfilter = [x[0] for x in pfilter if int(x[1].decode('UTF-8')) < 3]
+            isDeep = max(pfilter) > deepthresh
         elif pressure_mode == 'R':
-            isDeep = max(xar['PRES'].to_dict()['data'][pidx]) > deepthresh
+            p = xar['PRES'].to_dict()['data'][pidx]
+            pqc = xar['PRES_QC'].to_dict()['data'][pidx]
+            pfilter = list(zip(p,pqc))
+            pfilter = [x[0] for x in pfilter if int(x[1].decode('UTF-8')) < 3]
+            isDeep = max(pfilter) > deepthresh
 
     if isDeep:
         metadata['source'][0]['source'].append('argo_deep')
@@ -402,7 +418,7 @@ def extract_data(ncfile, pidx=0):
         data_keys_mode = {k: DATA_MODE for k in argokeys if '_argoqc' not in k} # ie assign the global mode to all non qc variables
         data_by_level = [list(x) for x in zip(*data_by_var)]
         data_by_level = [x for x in data_by_level if not math.isnan(x[argokeys.index('pressure')])] # ie each level must have a pressure measurement
-        return {"data_keys": argokeys, "units": units_by_var, "data": data_by_level, "data_keys_mode": data_keys_mode, "data_annotation": {"degenerate_levels": degenerate_levels, "argo_deep": max(nc_pressure)>2500}}
+        return {"data_keys": argokeys, "units": units_by_var, "data": data_by_level, "data_keys_mode": data_keys_mode, "data_annotation": {"degenerate_levels": degenerate_levels}}
 
     elif prefix in ['SD', 'SR']:
         # BGC profile
@@ -432,7 +448,7 @@ def extract_data(ncfile, pidx=0):
         argokeys = [argo_keymapping(x).replace('temperature', 'temperature_sfile').replace('salinity', 'salinity_sfile') for x in data_sought]
         data_by_level = [list(x) for x in zip(*data_by_var)]
         data_by_level = [x for x in data_by_level if not math.isnan(x[argokeys.index('pressure')])] 
-        return {"data_keys": argokeys, "units": units_by_var, "data": data_by_level, "data_keys_mode": data_keys_mode,  "data_annotation": {"degenerate_levels": degenerate_levels, "argo_deep": max(nc_pressure)>2500} }
+        return {"data_keys": argokeys, "units": units_by_var, "data": data_by_level, "data_keys_mode": data_keys_mode,  "data_annotation": {"degenerate_levels": degenerate_levels} }
 
     else:
         print('error: got unexpected prefix when extracting data lists:', prefix)
@@ -492,7 +508,6 @@ def merge_data(data_list):
     # merge data
     data = {}
     degenerate_levels = False
-    argo_deep = False
     for d in data_list:
         # handle annotations on first pass
         if "degenerate_levels" in d["data_annotation"] and d["data_annotation"]["degenerate_levels"]:

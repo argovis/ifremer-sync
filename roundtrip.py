@@ -174,10 +174,12 @@ while True:
 					# check adjusted data
 					data_sought = [f(x) for x in xar['data']['STATION_PARAMETERS'].to_dict()['data'][0] if x.decode('UTF-8').strip() in allowed_core for f in (lambda name: name.decode('UTF-8').strip()+'_ADJUSTED',lambda name: name.decode('UTF-8').strip()+'_ADJUSTED_QC')]
 					nc_pressure = xar['data']['PRES_ADJUSTED'].to_dict()['data'][0]
+					nc_pressure_qc = xar['data']['PRES_ADJUSTED_QC'].to_dict()['data'][0]
 					nc_pressure_label = 'PRES_ADJUSTED'
 				elif DATA_MODE == 'R':
 					data_sought = [f(x) for x in xar['data']['STATION_PARAMETERS'].to_dict()['data'][0] if x.decode('UTF-8').strip() in allowed_core for f in (lambda name: name.decode('UTF-8').strip(),lambda name: name.decode('UTF-8').strip()+'_QC')]
 					nc_pressure = xar['data']['PRES'].to_dict()['data'][0]
+					nc_pressure_qc = xar['data']['PRES_QC'].to_dict()['data'][0]
 					nc_pressure_label = 'PRES'
 				else:
 					logmessage += 'unrecognized DATA_MODE for ' + str(xar['source']) + '\n'
@@ -213,9 +215,11 @@ while True:
 						logmessage += 'error: unexpected data mode detected for ' + str(var[1]) + '\n'
 				if 'PRES_ADJUSTED' in data_sought:
 					nc_pressure = xar['data']['PRES_ADJUSTED'].to_dict()['data'][0]
+					nc_pressure_qc = xar['data']['PRES_ADJUSTED_QC'].to_dict()['data'][0]
 					nc_pressure_label = 'PRES_ADJUSTED'
 				elif 'PRES' in data_sought:
 					nc_pressure = xar['data']['PRES'].to_dict()['data'][0]
+					nc_pressure_qc = xar['data']['PRES_QC'].to_dict()['data'][0]
 					nc_pressure_label = 'PRES'
 				else:
 					logmessage += 'no pressure variable found\n'
@@ -237,7 +241,9 @@ while True:
 			else:
 				logmessage += f'unexpected prefix {prefix} found\n'
 
-			if max(nc_pressure) > 2500:
+			pfilter = list(zip(nc_pressure,nc_pressure_qc))
+			pfilter = [x[0] for x in pfilter if int(x[1].decode('UTF-8')) < 3]
+			if max(pfilter) > 2500:
 				si['source'].append('argo_deep')
 
 			if si not in p['source']:
