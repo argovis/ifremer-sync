@@ -220,14 +220,14 @@ def extract_metadata(ncfile, pidx=0):
             p = xar['PRES_ADJUSTED'].to_dict()['data'][pidx]
             pqc = xar['PRES_ADJUSTED_QC'].to_dict()['data'][pidx]
             pfilter = list(zip(p,pqc))
-            pfilter = [x[0] for x in pfilter if int(x[1].decode('UTF-8')) < 3]
-            isDeep = max(pfilter) > deepthresh
+            pfilter = [x[0] for x in pfilter if cleanup(x[1]) and cleanup(x[1]) < 3]
+            isDeep = (len(pfilter)) > 0 and (max(pfilter) > deepthresh)
         elif DATA_MODE == 'R':
             p = xar['PRES'].to_dict()['data'][pidx]
             pqc = xar['PRES_QC'].to_dict()['data'][pidx]
             pfilter = list(zip(p,pqc))
-            pfilter = [x[0] for x in pfilter if int(x[1].decode('UTF-8')) < 3]
-            isDeep = max(pfilter) > deepthresh
+            pfilter = [x[0] for x in pfilter if cleanup(x[1]) and cleanup(x[1]) < 3]
+            isDeep = (len(pfilter)) > 0 and (max(pfilter) > deepthresh)
     elif prefix in ['SR', 'SD']:
         # bgc argo
         metadata['source'][0]['source'] = ['argo_bgc']
@@ -239,14 +239,14 @@ def extract_metadata(ncfile, pidx=0):
             p = xar['PRES_ADJUSTED'].to_dict()['data'][pidx]
             pqc = xar['PRES_ADJUSTED_QC'].to_dict()['data'][pidx]
             pfilter = list(zip(p,pqc))
-            pfilter = [x[0] for x in pfilter if int(x[1].decode('UTF-8')) < 3]
-            isDeep = max(pfilter) > deepthresh
+            pfilter = [x[0] for x in pfilter if cleanup(x[1]) and cleanup(x[1]) < 3]
+            isDeep = (len(pfilter)) > 0 and (max(pfilter) > deepthresh)
         elif pressure_mode == 'R':
             p = xar['PRES'].to_dict()['data'][pidx]
             pqc = xar['PRES_QC'].to_dict()['data'][pidx]
             pfilter = list(zip(p,pqc))
-            pfilter = [x[0] for x in pfilter if int(x[1].decode('UTF-8')) < 3]
-            isDeep = max(pfilter) > deepthresh
+            pfilter = [x[0] for x in pfilter if cleanup(x[1]) and cleanup(x[1]) < 3]
+            isDeep = (len(pfilter)) > 0 and (max(pfilter) > deepthresh)
 
     if isDeep:
         metadata['source'][0]['source'].append('argo_deep')

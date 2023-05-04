@@ -242,8 +242,8 @@ while True:
 				logmessage += f'unexpected prefix {prefix} found\n'
 
 			pfilter = list(zip(nc_pressure,nc_pressure_qc))
-			pfilter = [x[0] for x in pfilter if int(x[1].decode('UTF-8')) < 3]
-			if max(pfilter) > 2500:
+			pfilter = [x[0] for x in pfilter if h.cleanup(x[1]) and h.cleanup(x[1]) < 3 ]
+			if (len(pfilter)>0) and (max(pfilter) > 2500):
 				si['source'].append('argo_deep')
 
 			if si not in p['source']:
