@@ -1,4 +1,4 @@
-x# usage: see freshrebuild.sh
+# usage: see freshrebuild.sh
 import sys
 import util.helpers as h
 
