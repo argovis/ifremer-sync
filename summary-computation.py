@@ -1,6 +1,6 @@
 from pymongo import MongoClient
 from bson.son import SON
-import datetime
+import datetime, json, copy, re
 
 client = MongoClient('mongodb://database/argo')
 db = client.argo
@@ -147,76 +147,141 @@ southernmost_profile = db.argo.find({
 }, {"geolocation":1}).sort("geolocation.coordinates.1", 1).limit(1)[0]
 southernmost_lat = southernmost_profile['geolocation']['coordinates'][1]
 
-data_variables = [
-	["bbp470", "Particle backscattering at 470 nanometers", "m-1"],
-	["bbp470_argoqc", "QC for bbp470", ""],
-	["bbp532", "Particle backscattering at 532 nanometers", "m-1"],
-	["bbp532_argoqc", "QC for bbp532", ""],
-	["bbp700", "Particle backscattering at 700 nanometers", "m-1"],
-	["bbp700_argoqc", "QC for bbp700", ""],
-	["bbp700_2", "Particle backscattering at 700 nanometers (second sensor)", "m-1"],
-	["bbp700_2_argoqc", "QC for bbp700 (second sensor)", ""],
-	["bisulfide", "Bisulfide", "micromole/kg"],
-	["bisulfide_argoqc", "QC for bisulfide", ""],
-	["cdom", "Concentration of coloured dissolved organic matter in sea water", "ppb"],
-	["cdom_argoqc", "QC for cdom", ""],
-	["chla", "Chlorophyll-A", "mg/m3"],
-	["chla_argoqc", "QC for chla", ""],
-	["chla_fluorescence", "Chlorophyll-A signal from fluorescence sensor", "count"],
-	["chla_fluorescence_argoqc", "QC for chla_fluorescence", ""],
-	["cndc", "Electrical conductivity", "mhos/m"],
-	["cndc_argoqc", "QC for cndc", ""],
-	["cp660", "Particle beam attenuation at 660 nanometers", "m-1"],
-	["cp660_argoqc", "QC for cp660", ""],
-	["down_irradiance380", "Downwelling irradiance at 380 nanometers", "W/m^2/nm"],
-	["down_irradiance380_argoqc", "QC for down_irradiance380", ""],
-	["down_irradiance412", "Downwelling irradiance at 412 nanometers", "W/m^2/nm"],
-	["down_irradiance412_argoqc", "QC for down_irradiance412", ""],
-	["down_irradiance443", "Downwelling irradiance at 443 nanometers", "W/m^2/nm"],
-	["down_irradiance443_argoqc", "QC for down_irradiance443", ""],
-	["down_irradiance490", "Downwelling irradiance at 490 nanometers", "W/m^2/nm"],
-	["down_irradiance490_argoqc", "QC for down_irradiance490", ""],
-	["down_irradiance555", "Downwelling irradiance at 555 nanometers", "W/m^2/nm"],
-	["down_irradiance555_argoqc", "QC for down_irradiance555", ""],
-	["down_irradiance665", "Downwelling irradiance at 665 nanometers", "W/m^2/nm"],
-	["down_irradiance665_argoqc", "QC for down_irradiance665", ""],
-	["down_irradiance670", "Downwelling irradiance at 670 nanometers", "W/m^2/nm"],
-	["down_irradiance670_argoqc", "QC for down_irradiance670", ""],
-	["downwelling_par", "Downwelling photosynthetic available radiation", "microMoleQuanta/m^2/sec"],
-	["downwelling_par_argoqc", "QC for downwelling_par", ""],
-	["doxy", "Dissolved oxygen", "micromole/kg"],
-	["doxy_argoqc", "QC for doxy", ""],
-	["doxy2", "Dissolved oxygen (second sensor)", "micromole/kg"],
-	["doxy2_argoqc", "QC for doxy2", ""],
-	["doxy3", "Dissolved oxygen (third sensor)", "micromole/kg"],
-	["doxy3_argoqc", "QC for doxy3", ""],
-	["nitrate", "Nitrate", "micromole/kg"],
-	["nitrate_argoqc", "QC for nitrate", ""],
-	["ph_in_situ_total", "pH", "dimensionless"],
-	["ph_in_situ_total_argoqc", "QC for ph_in_situ_total", ""],
-	["pressure", "Sea water pressure, equals 0 at sea-level", "decibar"],
-	["pressure_argoqc", "QC for pressure", ""],
-	["salinity", "Practical salinity", "psu"],
-	["salinity_argoqc", "QC for salinity", ""],
-	["salinity_sfile", "Practical salinity (reported in BGC synthetic file)", "psu"],
-	["salinity_sfile_argoqc", "QC for salinity_sfile", ""],
-	["temperature", "Sea temperature in-situ ITS-90 scale", "degree_Celsius"],
-	["temperature_argoqc", "QC for temperature", ""],
-	["temperature_sfile", "Sea temperature in-situ ITS-90 scale (reported in BGC synthetic file)", "degree_Celsius"],
-	["temperature_sfile_argoqc", "QC for temperature_sfile", ""],
-	["turbidity", "Sea water turbidity", "ntu"],
-	["turbidity_argoqc", "QC for turbidity", ""],
-	["up_radiance412", "Upwelling radiance at 412 nanometers", "W/m^2/nm/sr"],
-	["up_radiance412_argoqc", "QC for up_radiance412", ""],
-	["up_radiance443", "Upwelling radiance at 443 nanometers", "W/m^2/nm/sr"],
-	["up_radiance443_argoqc", "QC for up_radiance443", ""],
-	["up_radiance490", "Upwelling radiance at 490 nanometers", "W/m^2/nm/sr"],
-	["up_radiance490_argoqc", "QC for up_radiance490", ""],
-	["up_radiance555", "Upwelling radiance at 555 nanometers", "W/m^2/nm/sr"],
-	["up_radiance555_argoqc", "QC for up_radiance555", ""]
-]
+# lookup table scraped from http://www.argodatamgt.org/content/download/30910/209488/file/argo-parameters-list-core-and-b_20230612.xlsx
+admt_vars = {
+	"CNDC" : ["Electrical conductivity", "mhos/m"],
+	"PRES" : ["Sea water pressure, equals 0 at sea-level", "decibar"],
+	"PSAL" : ["Practical salinity", "psu"],
+	"TEMP" : ["Sea temperature in-situ ITS-90 scale", "degree_Celsius"],
+	"DOXY" : ["Dissolved oxygen", "micromole/kg"],
+	"TEMP_DOXY" : ["Sea temperature from oxygen sensor ITS-90 scale", "degree_Celsius"],
+	"TEMP_VOLTAGE_DOXY" : ["Thermistor voltage reported by oxygen sensor", "volt"],
+	"VOLTAGE_DOXY" : ["Voltage reported by oxygen sensor", "volt"],
+	"FREQUENCY_DOXY" : ["Frequency reported by oxygen sensor", "hertz"],
+	"COUNT_DOXY" : ["Count reported by oxygen sensor", "count"],
+	"BPHASE_DOXY" : ["Uncalibrated phase shift reported by oxygen sensor", "degree"],
+	"DPHASE_DOXY" : ["Calibrated phase shift reported by oxygen sensor", "degree"],
+	"TPHASE_DOXY" : ["Uncalibrated phase shift reported by oxygen sensor", "degree"],
+	"C1PHASE_DOXY" : ["Uncalibrated phase shift reported by oxygen sensor", "degree"],
+	"C2PHASE_DOXY" : ["Uncalibrated phase shift reported by oxygen sensor", "degree"],
+	"MOLAR_DOXY" : ["Uncompensated (pressure and salinity) oxygen concentration reported by the oxygen sensor", "micromole/l"],
+	"PHASE_DELAY_DOXY" : ["Phase delay reported by oxygen sensor", "microsecond"],
+	"MLPL_DOXY" : ["Oxygen concentration reported by the oxygen sensor", "ml/l"],
+	"NB_SAMPLE_CTD" : ["Number of samples in each pressure bin for the CTD", "count"],
+	"NB_SAMPLE_SFET" : ["Number of samples in each pressure bin for the SFET", "count"],
+	"NB_SAMPLE_<parameter_sensor_name>" : ["Number of samples in each pressure bin for the <parameter_sensor_name> ", "count"],
+	"RPHASE_DOXY" : ["Uncalibrated red phase shift reported by oxygen sensor", "degree"],
+	"TEMP_COUNT_DOXY" : ["Count which is expressive of uncalibrated temperature value reported by oxygen sensor", "count"],
+	"LED_FLASHING_COUNT_DOXY" : ["Number of times oxygen sensor flashing to measure oxygen", "count"],
+	"PPOX_DOXY" : ["Partial pressure of oxygen", "millibar"],
+	"BETA_BACKSCATTERING" : ["Total angle specific volume from backscattering sensor at x nanometers", "count"],
+	"BETA_BACKSCATTERING470" : ["Total angle specific volume from backscattering sensor at 470 nanometers", "count"],
+	"BETA_BACKSCATTERING532" : ["Total angle specific volume from backscattering sensor at 532 nanometers", "count"],
+	"BETA_BACKSCATTERING700" : ["Total angle specific volume from backscattering sensor at 700 nanometers", "count"],
+	"FLUORESCENCE_CHLA" : ["Chlorophyll-A signal from fluorescence sensor", "count"],
+	"TEMP_CPU_CHLA" : ["Thermistor signal from backscattering sensor", "count"],
+	"FLUORESCENCE_CDOM" : ["Raw fluorescence from coloured dissolved organic matter sensor", "count"],
+	"SIDE_SCATTERING_TURBIDITY" : ["Turbidity signal from side scattering sensor", "count"],
+	"TRANSMITTANCE_PARTICLE_BEAM_ATTENUATION" : ["Beam attenuation from transmissometer sensor at x nanometers", "count"],
+	"TRANSMITTANCE_PARTICLE_BEAM_ATTENUATION660" : ["Beam attenuation from transmissometer sensor at 660 nanometers", "count"],
+	"BBP" : ["Particle backscattering at x nanometers", "m-1"],
+	"BBP470" : ["Particle backscattering at 470 nanometers", "m-1"],
+	"BBP532" : ["Particle backscattering at 532 nanometers", "m-1"],
+	"BBP700" : ["Particle backscattering at 700 nanometers", "m-1"],
+	"TURBIDITY" : ["Sea water turbidity", "ntu"],
+	"CP" : ["Particle beam attenuation at x nanometers", "m-1"],
+	"CP660" : ["Particle beam attenuation at 660 nanometers", "m-1"],
+	"CHLA" : ["Chlorophyll-A", "mg/m3"],
+	"CDOM" : ["Concentration of coloured dissolved organic matter in sea water", "ppb"],
+	"UV_INTENSITY_NITRATE" : ["Intensity of ultra violet flux from nitrate sensor", "count"],
+	"UV_INTENSITY_DARK_NITRATE" : ["Intensity of ultra violet flux dark measurement from nitrate sensor", "count"],
+	"UV_INTENSITY_DARK_SEAWATER_NITRATE" : ["Intensity of ultra-violet flux dark sea water from nitrate sensor", "count"],
+	"NITRATE" : ["Nitrate", "micromole/kg"],
+	"BISULFIDE" : ["Bisulfide", "micromole/kg"],
+	"MOLAR_NITRATE" : ["Nitrate", "micromole/l"],
+	"FIT_ERROR_NITRATE" : ["Nitrate fit error", "dimensionless"],
+	"TEMP_NITRATE" : ["Internal temperature of the SUNA sensor", "degree_Celsius"],
+	"TEMP_SPECTROPHOTOMETER_NITRATE" : ["Temperature of the spectrometer", "degree_Celsius"],
+	"HUMIDITY_NITRATE" : ["Relative humidity inside the SUNA sensor (If > 50% There is a leak)", "percent"],
+	"VRS_PH" : ["Voltage difference between reference and source from pH sensor", "volt"],
+	"TEMP_PH" : ["Sea temperature from pH sensor", "degree_Celsius"],
+	"IB_PH" : ["Base current of pH sensor", "nanoampere"],
+	"VK_PH" : ["Counter electrode voltage of pH sensor", "volt"],
+	"IK_PH" : ["Counter electrode current of pH sensor", "nanoampere"],
+	"PH_IN_SITU_TOTAL" : ["pH", "dimensionless"],
+	"PH_IN_SITU_FREE" : ["pH", "dimensionless"],
+	"PH_IN_SITU_SEAWATER" : ["pH", "dimensionless"],
+	"RAW_DOWNWELLING_IRRADIANCE" : ["Raw downwelling irradiance at x nanometers", "count"],
+	"RAW_DOWNWELLING_IRRADIANCE380" : ["Raw downwelling irradiance at 380 nanometers", "count"],
+	"RAW_DOWNWELLING_IRRADIANCE412" : ["Raw downwelling irradiance at 412 nanometers", "count"],
+	"RAW_DOWNWELLING_IRRADIANCE443" : ["Raw downwelling irradiance at 443 nanometers", "count"],
+	"RAW_DOWNWELLING_IRRADIANCE490" : ["Raw downwelling irradiance at 490 nanometers", "count"],
+	"RAW_DOWNWELLING_IRRADIANCE555" : ["Raw downwelling irradiance at 555 nanometers", "count"],
+	"RAW_DOWNWELLING_IRRADIANCE665" : ["Raw downwelling irradiance at 665 nanometers", "count"],
+	"RAW_DOWNWELLING_IRRADIANCE670" : ["Raw downwelling irradiance at 670 nanometers", "count"],
+	"DOWN_IRRADIANCE" : ["Downwelling irradiance at x nanometers", "W/m^2/nm"],
+	"DOWN_IRRADIANCE380" : ["Downwelling irradiance at 380 nanometers", "W/m^2/nm"],
+	"DOWN_IRRADIANCE412" : ["Downwelling irradiance at 412 nanometers", "W/m^2/nm"],
+	"DOWN_IRRADIANCE443" : ["Downwelling irradiance at 443 nanometers", "W/m^2/nm"],
+	"DOWN_IRRADIANCE490" : ["Downwelling irradiance at 490 nanometers", "W/m^2/nm"],
+	"DOWN_IRRADIANCE555" : ["Downwelling irradiance at 555 nanometers", "W/m^2/nm"],
+	"DOWN_IRRADIANCE665" : ["Downwelling irradiance at 665 nanometers", "W/m^2/nm"],
+	"DOWN_IRRADIANCE670" : ["Downwelling irradiance at 670 nanometers", "W/m^2/nm"],
+	"RAW_UPWELLING_RADIANCE" : ["Raw upwelling radiance at x nanometers", "count"],
+	"RAW_UPWELLING_RADIANCE412" : ["Raw upwelling radiance at 412 nanometers", "count"],
+	"RAW_UPWELLING_RADIANCE443" : ["Raw upwelling radiance at 443 nanometers", "count"],
+	"RAW_UPWELLING_RADIANCE490" : ["Raw upwelling radiance at 490 nanometers", "count"],
+	"RAW_UPWELLING_RADIANCE555" : ["Raw upwelling radiance at 555 nanometers", "count"],
+	"UP_RADIANCE" : ["Upwelling radiance at x nanometers", "W/m^2/nm/sr"],
+	"UP_RADIANCE412" : ["Upwelling radiance at 412 nanometers", "W/m^2/nm/sr"],
+	"UP_RADIANCE443" : ["Upwelling radiance at 443 nanometers", "W/m^2/nm/sr"],
+	"UP_RADIANCE490" : ["Upwelling radiance at 490 nanometers", "W/m^2/nm/sr"],
+	"UP_RADIANCE555" : ["Upwelling radiance at 555 nanometers", "W/m^2/nm/sr"],
+	"RAW_DOWNWELLING_PAR" : ["Raw downwelling photosynthetic available radiation", "count"],
+	"DOWNWELLING_PAR" : ["Downwelling photosynthetic available radiation", "microMoleQuanta/m^2/sec"],
+	"TILT" : ["Inclination of the float axis in respect to the local vertical", "degree"],
+	"MTIME" : ["Fractional day of the individual measurement relative to JULD of the station", "days"],
+	"TEMP_CNDC" : ["Internal temperature of the conductivity cell", "degree_Celsius"],
+	"CHLA_FLUORESCENCE" : ["Chlorophyll fluorescence with factory calibration", "ru"]
+} 
 
-property_values = [{"@type": "PropertyValue", "name": var[0], "url": "https://archimer.ifremer.fr/doc/00187/29825/94819.pdf", "description": var[1], "unitCode": var[2]} for var in data_variables]
+property_values = []
+for k in data_keys:
+    var = ["variable not found in ADMT documentation", ""]
+    isQC = k.endswith("_argoqc")
+    isSfile = k.endswith("_sfile")
+    varname = re.sub('_argoqc$', '', k)
+    argoname = varname.upper()
+    argovis_mappings = {
+        'TEMPERATURE': 'TEMP',
+        'TEMPERATURE_SFILE': 'TEMP',
+        'SALINITY': 'PSAL',
+        'SALINITY_SFILE': 'PSAL',
+        'PRESSURE': 'PRES'
+    }
+    if argoname in argovis_mappings:
+        argoname = argovis_mappings[argoname]
+
+    if argoname in admt_vars:
+        var = admt_vars[argoname].copy()
+        if isSfile:
+            var[0] += ' from BGC file'
+        if isQC:
+            var = [f"QC for {varname}", ""]
+    elif varname.endswith(tuple(str(i) for i in range(10))):
+        sensor = int(varname[-1:])
+        varname = varname[:-1]
+        argoname = varname.rstrip('_').upper()
+        if argoname in argovis_mappings:
+            argoname = argovis_mappings[argoname]
+        if argoname in admt_vars:
+            var = admt_vars[argoname].copy()
+            var[0] += f" (sensor {sensor})"
+            if isSfile:
+                var[0] += ' from BGC file'
+            if isQC:
+                var = [f"QC for {varname}{sensor}", ""]       
+    property_values.append({"@type": "PropertyValue", "name": k, "url": "https://archimer.ifremer.fr/doc/00187/29825/94819.pdf", "description": var[0], "unitCode": var[1]})
 
 jsonld_summary = {
     "@context": {
