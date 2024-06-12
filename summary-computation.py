@@ -293,10 +293,8 @@ jsonld_summary = {
     "description": "Argovis provides a representation of the profiles collected over the lifetime of the Argo program. This representation is intended to present an interpretation of Argo data that is lightly simplified from the original product, but still appropriate for a large majority of scientific and educational use cases. Simplifications include presenting delayed (better corrected and QCed) mode data where available; presenting interpolated biogeochemical data only; and merging core and bioogeochemical data collected in parallel into unified oceanic profiles. For an introduction to using the Argovis API to access Argo data in Python, see https://github.com/argovis/demo_notebooks/blob/main/Intro_to_Argovis.ipynb.",
     "url": "https://argovis.colorado.edu/argourlhelper",
     "license": "https://opensource.org/license/mit",
-    "citation": [
-        "Tucker, T., D. Giglio, M. Scanderbeg, and S.S.P. Shen: Argovis: A Web Application for Fast Delivery, Visualization, and Analysis of Argo Data. J. Atmos. Oceanic Technol., 37, 401–416, https://doi.org/10.1175/JTECH-D-19-0041.1",
-        "Wong, A. P. S., et al. (2020), Argo Data 1999–2019: Two Million Temperature-Salinity Profiles and Subsurface Velocity Observations From a Global Array of Profiling Floats, Frontiers in Marine Science, 7(700), doi: https://doi.org/10.3389/fmars.2020.00700",
-        "Argo (2000). Argo float data and metadata from Global Data Assembly Centre (Argo GDAC). SEANOE. https://doi.org/10.17882/42182"
+    "creditText": [
+        "Tucker, T., D. Giglio, M. Scanderbeg, and S.S.P. Shen: Argovis: A Web Application for Fast Delivery, Visualization, and Analysis of Argo Data. J. Atmos. Oceanic Technol., 37, 401–416, https://doi.org/10.1175/JTECH-D-19-0041.1"
     ],
     "creator": [
         {
@@ -384,7 +382,7 @@ jsonld_summary = {
                 "value": "http://www.w3.org/2003/01/geo/wgs84_pos"
             }
     },
-    "provider": [
+    "sdPublisher": [
         {
             "@type": "Organization",
             "legalName": "University of Colorado Boulder",
