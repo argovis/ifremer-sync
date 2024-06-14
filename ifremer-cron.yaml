@@ -3,7 +3,7 @@ kind: CronJob
 metadata:
   name: ifremer-sync
 spec:
-  schedule: "0 10 * * 0,1,2,3,5,6"
+  schedule: "0 6 * * *"
   concurrencyPolicy: Forbid
   jobTemplate:
     spec:
