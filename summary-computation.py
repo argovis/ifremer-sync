@@ -440,7 +440,7 @@ datasets = {
     'argo': {'metagroups': ['_id', 'metadata', 'platform'], 'startDate': None, 'endDate': None, 'qc': 'timestamp_argoqc'},
     #'argone': {'metagroups': ['_id'], 'startDate': None, 'endDate': None}, # doesn't have timestamps
     'cchdo': {'metagroups': ['_id', 'metadata', 'woceline', 'cchdo_cruise'], 'startDate': None, 'endDate': None},
-    'drifter': {'metagroups': ['_id', 'metadata', 'wmo', 'platform'], 'startDate': None, 'endDate': None},
+    #'drifter': {'metagroups': ['_id', 'metadata', 'wmo', 'platform'], 'startDate': None, 'endDate': None}, # drifters live in an independent deployment, do this over there
     'easyocean': {'metagroups': ['_id'], 'startDate': None, 'endDate': None},
     'rg09': {'metagroups': ['_id'], 'startDate': None, 'endDate': None},
     'kg21': {'metagroups': ['_id'], 'startDate': None, 'endDate': None},
@@ -456,9 +456,9 @@ timeseries = ['noaasst', 'copernicussla', 'ccmpwind']
 
 for dataset in datasets:
     if dataset in timeseries:
-        timeseries = db['timeseriesMeta'].find_one({"_id":dataset})['timeseries']
-        startDate = timeseries[0]
-        endDate = timeseries[-1]
+        ts = db['timeseriesMeta'].find_one({"_id":dataset})['timeseries']
+        startDate = ts[0].isoformat() + "Z"
+        endDate = ts[-1].isoformat() + "Z"
     else:
         startDate, endDate = get_timestamp_range(db, dataset)
     datasets[dataset]['startDate'] = startDate
