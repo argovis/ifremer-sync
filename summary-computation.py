@@ -435,21 +435,21 @@ def get_timestamp_range(db, collection_name):
         return None, None
 
 datasets = {
-    # metagroups: indexed fields to allow rate limiter cost discounts for; corresponds more or less to the special fields listed in each dataset's service's local_filter and metafilter
-    'ar': {'metagroups': ['_id'], 'startDate': None, 'endDate': None},
-    'argo': {'metagroups': ['_id', 'metadata', 'platform'], 'startDate': None, 'endDate': None, 'qc': 'timestamp_argoqc'},
-    #'argone': {'metagroups': ['_id'], 'startDate': None, 'endDate': None}, # doesn't have timestamps
-    'cchdo': {'metagroups': ['_id', 'metadata', 'woceline', 'cchdo_cruise'], 'startDate': None, 'endDate': None},
-    #'drifter': {'metagroups': ['_id', 'metadata', 'wmo', 'platform'], 'startDate': None, 'endDate': None}, # drifters live in an independent deployment, do this over there
-    'easyocean': {'metagroups': ['_id'], 'startDate': None, 'endDate': None},
-    'rg09': {'metagroups': ['_id'], 'startDate': None, 'endDate': None},
-    'kg21': {'metagroups': ['_id'], 'startDate': None, 'endDate': None},
-    'glodap': {'metagroups': ['_id'], 'startDate': None, 'endDate': None},
-    'tc': {'metagroups': ['_id', 'metadata', 'name'], 'startDate': None, 'endDate': None},
-    'noaasst': {'metagroups': ['_id'], 'startDate': None, 'endDate': None},
-    'copernicussla': {'metagroups': ['_id'], 'startDate': None, 'endDate': None},
-    'ccmpwind': {'metagroups': ['_id'], 'startDate': None, 'endDate': None},
-    'argotrajectories': {'metagroups': ['_id', 'metadata', 'platform'], 'startDate': None, 'endDate': None},
+    # metagroups: qsp's corresponding to indexed fields to allow rate limiter cost discounts for; corresponds more or less to the special fields listed in each dataset's service's local_filter and metafilter
+    'ar': {'metagroups': ['id'], 'startDate': None, 'endDate': None},
+    'argo': {'metagroups': ['id', 'metadata', 'platform'], 'startDate': None, 'endDate': None, 'qc': 'timestamp_argoqc'},
+    #'argone': {'metagroups': ['id'], 'startDate': None, 'endDate': None}, # doesn't have timestamps
+    'cchdo': {'metagroups': ['id', 'metadata', 'woceline', 'cchdo_cruise'], 'startDate': None, 'endDate': None},
+    #'drifter': {'metagroups': ['id', 'metadata', 'wmo', 'platform'], 'startDate': None, 'endDate': None}, # drifters live in an independent deployment, do this over there
+    'easyocean': {'metagroups': ['id'], 'startDate': None, 'endDate': None},
+    'rg09': {'metagroups': ['id'], 'startDate': None, 'endDate': None},
+    'kg21': {'metagroups': ['id'], 'startDate': None, 'endDate': None},
+    'glodap': {'metagroups': ['id'], 'startDate': None, 'endDate': None},
+    'tc': {'metagroups': ['id', 'metadata', 'name'], 'startDate': None, 'endDate': None},
+    'noaasst': {'metagroups': ['id'], 'startDate': None, 'endDate': None},
+    'copernicussla': {'metagroups': ['id'], 'startDate': None, 'endDate': None},
+    'ccmpwind': {'metagroups': ['id'], 'startDate': None, 'endDate': None},
+    'argotrajectories': {'metagroups': ['id', 'metadata', 'platform'], 'startDate': None, 'endDate': None},
 }
 
 timeseries = ['noaasst', 'copernicussla', 'ccmpwind']
