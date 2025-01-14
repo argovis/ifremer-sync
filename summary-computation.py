@@ -449,7 +449,7 @@ datasets = {
     'noaasst': {'metagroups': ['_id'], 'startDate': None, 'endDate': None},
     'copernicussla': {'metagroups': ['_id'], 'startDate': None, 'endDate': None},
     'ccmpwind': {'metagroups': ['_id'], 'startDate': None, 'endDate': None},
-    'trajectories': {'metagroups': ['_id', 'metadata', 'platform'], 'startDate': None, 'endDate': None},
+    'argotrajectories': {'metagroups': ['_id', 'metadata', 'platform'], 'startDate': None, 'endDate': None},
 }
 
 timeseries = ['noaasst', 'copernicussla', 'ccmpwind']
