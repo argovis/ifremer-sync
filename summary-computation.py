@@ -401,71 +401,16 @@ except BaseException as err:
 
 # rate limiter metadata
 
-def get_timestamp_range(db, collection_name):
-    collection = db[collection_name]
-    
-    # Find the earliest timestamp
-    filter = {}
-    if 'qc' in datasets[collection_name]:
-        filter[datasets[collection_name]['qc']] = 1
-    earliest_doc = collection.find_one(filter, sort=[("timestamp", 1)])
-    if earliest_doc and "timestamp" in earliest_doc:
-        earliest_timestamp = earliest_doc["timestamp"]
-    else:
-        return None, None  # Return None if no timestamps are found
+ratelimiter = db.summaries.find_one({"_id": 'ratelimiter'})
 
-    # Find the latest timestamp or current time, whichever is earlier
-    filter = {}
-    if 'qc' in datasets[collection_name]:
-        filter[datasets[collection_name]['qc']] = 1
-    latest_doc = collection.find_one(filter, sort=[("timestamp", -1)])
-    current_time = datetime.datetime.utcnow()
-
-    if latest_doc and "timestamp" in latest_doc:
-        latest_timestamp = min(latest_doc["timestamp"], current_time)
-    else:
-        latest_timestamp = current_time  # If no documents, default to current time
-
-    # Convert timestamps to ISO 8601 format
-    try:
-        earliest_iso = earliest_timestamp.isoformat() + "Z"
-        latest_iso = latest_timestamp.isoformat() + "Z"
-        return earliest_iso, latest_iso
-    except:
-        return None, None
-
-datasets = {
-    # metagroups: qsp's corresponding to indexed fields to allow rate limiter cost discounts for; corresponds more or less to the special fields listed in each dataset's service's local_filter and metafilter
-    'ar': {'metagroups': ['id'], 'startDate': None, 'endDate': None},
-    'argo': {'metagroups': ['id', 'metadata', 'platform'], 'startDate': None, 'endDate': None, 'qc': 'timestamp_argoqc'},
-    #'argone': {'metagroups': ['id'], 'startDate': None, 'endDate': None}, # doesn't have timestamps
-    'cchdo': {'metagroups': ['id', 'metadata', 'woceline', 'cchdo_cruise'], 'startDate': None, 'endDate': None},
-    #'drifter': {'metagroups': ['id', 'metadata', 'wmo', 'platform'], 'startDate': None, 'endDate': None}, # drifters live in an independent deployment, do this over there
-    'easyocean': {'metagroups': ['id'], 'startDate': None, 'endDate': None},
-    'rg09': {'metagroups': ['id'], 'startDate': None, 'endDate': None},
-    'kg21': {'metagroups': ['id'], 'startDate': None, 'endDate': None},
-    'glodap': {'metagroups': ['id'], 'startDate': None, 'endDate': None},
-    'tc': {'metagroups': ['id', 'metadata', 'name'], 'startDate': None, 'endDate': None},
-    'noaasst': {'metagroups': ['id'], 'startDate': None, 'endDate': None},
-    'copernicussla': {'metagroups': ['id'], 'startDate': None, 'endDate': None},
-    'ccmpwind': {'metagroups': ['id'], 'startDate': None, 'endDate': None},
-    'argotrajectories': {'metagroups': ['id', 'metadata', 'platform'], 'startDate': None, 'endDate': None},
-}
-
-timeseries = ['noaasst', 'copernicussla', 'ccmpwind']
-
-for dataset in datasets:
-    if dataset in timeseries:
-        ts = db['timeseriesMeta'].find_one({"_id":dataset})['timeseries']
-        startDate = ts[0].isoformat() + "Z"
-        endDate = ts[-1].isoformat() + "Z"
-    else:
-        startDate, endDate = get_timestamp_range(db, dataset)
-    datasets[dataset]['startDate'] = startDate
-    datasets[dataset]['endDate'] = endDate
+earliest_doc = db.argo.find_one({'timestamp_argoqc': 1}, sort=[("timestamp", 1)])
+startDate = earliest_doc["timestamp"].isoformat() + "Z"
+endDate = datetime.datetime.utcnow().isoformat() + "Z"
+argolimit = {'metagroups': ['id', 'metadata', 'platform'], 'startDate': startDate, 'endDate': endDate, 'qc': 'timestamp_argoqc'}
+ratelimiter['metadata']['argo'] = argolimit
 
 try:
-    db.summaries.replace_one({"_id": 'ratelimiter'}, {"_id": 'ratelimiter', "metadata":datasets}, upsert=True)
+    db.summaries.replace_one({"_id": 'ratelimiter'}, ratelimiter, upsert=True)
 except BaseException as err:
     print('error: db write failure')
     print(err)
