@@ -16,3 +16,10 @@ while read i ; do python translateProfile.py $i >> ${logdir}/updatedprofiles.log
 
 # once loading complete, kick off summary precomputation
 python summary-computation.py
+
+# exit with error code 9999 if something bad happened in the ifremer update
+if grep -qi "ERROR" ${logdir}/updatedprofiles.log ; then
+    exit 9999
+else
+    exit 0
+fi

@@ -4,6 +4,9 @@ metadata:
   name: ifremer-sync
 spec:
   schedule: "0 6 * * *"
+  startingDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 7
   concurrencyPolicy: Forbid
   jobTemplate:
     spec:

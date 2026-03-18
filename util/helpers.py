@@ -51,6 +51,7 @@ def argo_keymapping(nckey):
         "BISULFIDE": "bisulfide",
         "CDOM": "cdom",
         "CHLA": "chla",
+        "CHLA_FLUORESCENCE": "chla_fluorescence",
         "CNDC": "cndc",
         "CNDX": "cndx",
         "CP660": "cp660",
@@ -83,6 +84,7 @@ def argo_keymapping(nckey):
         "BISULFIDE_QC": "bisulfide_argoqc",
         "CDOM_QC": "cdom_argoqc",
         "CHLA_QC": "chla_argoqc",
+        "CHLA_FLUORESCENCE_QC": "chla_fluorescence_qc",
         "CNDC_QC": "cndc_argoqc",
         "CNDX_QC": "cndx_argoqc",
         "CP660_QC": "cp660_argoqc",
@@ -148,6 +150,9 @@ def stringcycle(cyclenumber):
     # given a numerical cyclenumber,
     # return a string left padded with 0s appropriate for use in a profile ID
 
+    if cyclenumber == -1:
+        return 'NAN'
+
     c = int(cyclenumber)
     if c < 10:
         return '00'+str(c)
@@ -177,7 +182,10 @@ def extract_metadata(ncfile, pidx=0):
     metadata['platform'] = xar['PLATFORM_NUMBER'].to_dict()['data'][pidx].decode('UTF-8').strip()
 
     ## cycle_number
-    metadata['cycle_number'] = int(xar['CYCLE_NUMBER'].to_dict()['data'][pidx])
+    try:
+        metadata['cycle_number'] = int(xar['CYCLE_NUMBER'].to_dict()['data'][pidx])
+    except:
+        metadata['cycle_number'] = -1
 
     ## profile_direction
     if('DIRECTION') in variables:
@@ -221,13 +229,13 @@ def extract_metadata(ncfile, pidx=0):
             pqc = xar['PRES_ADJUSTED_QC'].to_dict()['data'][pidx]
             pfilter = list(zip(p,pqc))
             pfilter = [x[0] for x in pfilter if cleanup(x[1]) and cleanup(x[1]) < 3]
-            isDeep = (len(pfilter)) > 0 and (max(pfilter) > deepthresh)
+            isDeep = any(pres > deepthresh for pres in pfilter)
         elif DATA_MODE == 'R':
             p = xar['PRES'].to_dict()['data'][pidx]
             pqc = xar['PRES_QC'].to_dict()['data'][pidx]
             pfilter = list(zip(p,pqc))
             pfilter = [x[0] for x in pfilter if cleanup(x[1]) and cleanup(x[1]) < 3]
-            isDeep = (len(pfilter)) > 0 and (max(pfilter) > deepthresh)
+            isDeep = any(pres > deepthresh for pres in pfilter)
     elif prefix in ['SR', 'SD']:
         # bgc argo
         metadata['source'][0]['source'] = ['argo_bgc']
@@ -240,13 +248,13 @@ def extract_metadata(ncfile, pidx=0):
             pqc = xar['PRES_ADJUSTED_QC'].to_dict()['data'][pidx]
             pfilter = list(zip(p,pqc))
             pfilter = [x[0] for x in pfilter if cleanup(x[1]) and cleanup(x[1]) < 3]
-            isDeep = (len(pfilter)) > 0 and (max(pfilter) > deepthresh)
+            isDeep = any(pres > deepthresh for pres in pfilter)
         elif pressure_mode == 'R':
             p = xar['PRES'].to_dict()['data'][pidx]
             pqc = xar['PRES_QC'].to_dict()['data'][pidx]
             pfilter = list(zip(p,pqc))
             pfilter = [x[0] for x in pfilter if cleanup(x[1]) and cleanup(x[1]) < 3]
-            isDeep = (len(pfilter)) > 0 and (max(pfilter) > deepthresh)
+            isDeep = any(pres > deepthresh for pres in pfilter)
 
     if isDeep:
         metadata['source'][0]['source'].append('argo_deep')
@@ -276,7 +284,7 @@ def extract_metadata(ncfile, pidx=0):
 
     ## pi_name
     if('PI_NAME') in variables:
-        metadata['pi_name'] = xar['PI_NAME'].to_dict()['data'][pidx].decode('UTF-8').strip().split(',')
+        metadata['pi_name'] = decode_netcdf_text(xar['PI_NAME'].to_dict()['data'][pidx]).strip().split(',')
 
     ## country: TODO
 
@@ -425,7 +433,7 @@ def extract_data(ncfile, pidx=0):
         if 'PARAMETER_DATA_MODE' not in list(xar.variables):
             print('error: PARAMETER_DATA_MODE not found.')
             return None
-        PARAMETER_DATA_MODE = [x.decode('UTF-8') for x in xar['PARAMETER_DATA_MODE'].to_dict()['data'][pidx]]
+        PARAMETER_DATA_MODE = [decode_netcdf_text(x) for x in xar['PARAMETER_DATA_MODE'].to_dict()['data'][pidx]]
         STATION_PARAMETERS = [x.decode('UTF-8').strip() for x in xar['STATION_PARAMETERS'].to_dict()['data'][pidx]]
         data_sought = []
         data_keys_mode = {}
@@ -441,7 +449,13 @@ def extract_data(ncfile, pidx=0):
                 data_keys_mode[argo_keymapping(var[1]).replace('temperature', 'temperature_sfile').replace('salinity', 'salinity_sfile')] = var[0]
                 nc_pressure = xar['PRES'].to_dict()['data'][pidx]
             else:
+                # seen some instances where the parameter data mode appears to be a float?
+                # treat this like realtime since these examples were all in realtime files, also seems safer
+                # but preserve whatever weird character is found in the parameter data mode so we know something is fishy
                 print('error: unexpected data mode detected for', var[1])
+                data_sought.extend([var[1],var[1]+'_QC'])
+                data_keys_mode[argo_keymapping(var[1]).replace('temperature', 'temperature_sfile').replace('salinity', 'salinity_sfile')] = var[0]
+                nc_pressure = xar['PRES'].to_dict()['data'][pidx]
         degenerate_levels = len(nc_pressure) != len(set(nc_pressure)) 
         data_by_var = [xar[x].to_dict()['data'][pidx] for x in data_sought]
         units_by_var = {argo_keymapping(x).replace('temperature', 'temperature_sfile').replace('salinity', 'salinity_sfile'): xar[x].to_dict()['attrs']['units'] for x in data_sought if 'units' in xar[x].to_dict()['attrs']}
@@ -632,3 +646,17 @@ def determine_metaid(metadict, existingmeta, prefix):
         metaid = prefix+str(len(existingmeta))
 
     return metaid
+
+def decode_netcdf_text(value):
+    if isinstance(value, (bytes, bytearray)):
+        b = bytes(value)
+        try:
+            return b.decode("utf-8")
+        except UnicodeDecodeError:
+            try:
+                return b.decode("latin1")
+            except Exception:
+                return b.decode("utf-8", errors="replace")
+    if isinstance(value, str):
+        return value
+    return str(value)
