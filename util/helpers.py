@@ -374,9 +374,10 @@ def compare_metadata(metadata):
         for c in comparisons:
             if c in metadata[0] and c in m:
                 if metadata[0][c] != m[c]:
-                    print(metadata[0][c], m[c])
+                    print('inconsistent values:', metadata[0][c], m[c])
                     return False
                 elif (c in metadata[0] and c not in m) or (c not in metadata[0] and c in m):
+                    print('inconsistent presence of key:', c)
                     return False
 
     return True

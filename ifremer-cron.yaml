@@ -10,6 +10,13 @@ spec:
   concurrencyPolicy: Forbid
   jobTemplate:
     spec:
+      podFailurePolicy:
+        rules:
+          - action: FailJob
+            onExitCodes:
+              containerName: ifremer-sync
+              operator: In
+              values: [108]
       template:
         metadata:
           name: ifremer-sync
