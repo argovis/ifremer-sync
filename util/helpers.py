@@ -1,4 +1,4 @@
-import re, xarray, datetime, math, glob
+import re, xarray, datetime, math, glob, copy
 from geopy import distance
 
 def pickprof(filename):
@@ -363,25 +363,6 @@ def find_basin(lon, lat, suppress=False):
     basins.close()
     return int(basin)
 
-
-def compare_metadata(metadata):
-    # given a list of metadata objects as returned by extract_metadata,
-    # return true if all list elements are mutually consistent with having come from the same profile
-
-    comparisons = ['platform', 'cycle_number', '_id', 'basin', 'data_type', 'geolocation', 'instrument', 'data_center', 'timestamp', 'pi_name', 'geolocation_argoqc', 'timestamp_argoqc', 'fleetmonitoring', 'oceanops', 'platform_type', 'positioning_system', 'vertical_sampling_scheme', 'wmo_inst_type']
-
-    for m in metadata[1:]:
-        for c in comparisons:
-            if c in metadata[0] and c in m:
-                if metadata[0][c] != m[c]:
-                    print('inconsistent values:', metadata[0][c], m[c])
-                    return False
-                elif (c in metadata[0] and c not in m) or (c not in metadata[0] and c in m):
-                    print('inconsistent presence of key:', c)
-                    return False
-
-    return True
-
 def extract_data(ncfile, pidx=0):
     # given the path ncfile to an argo nc file,
     # extract and return an object with:
@@ -474,37 +455,68 @@ def extract_data(ncfile, pidx=0):
 def merge_metadata(md):
     # given a list md of metadata objects extracted from seaprate nc files from the same platform and cycle,
     # return a single metadata object that sensibly combines the two.
-    # assumes consistency check has already been passed
+    # if the synthetic profile disagrees with the core profile, core wins; record a warning and the synthetic file's opinion in a subdict.
 
+    md = copy.deepcopy(md)
     metadata = {}
+    bgc_mismatches = {}
+    data_warnings = set()
 
-    mandatory_unique_keys = ['_id', 'cycle_number', 'basin', 'data_type', 'geolocation', 'instrument', 'timestamp', 'date_updated_argovis', 'fleetmonitoring', 'oceanops'] # yes, 'date_updated_argovis' will be different between the core and synthetic file for a given profile by a few ms, but we intentionally only keep one as this difference isn't meaningful
-    for key in mandatory_unique_keys:
+    # if there are two profiles, make sure the core profile comes first
+    if len(md) == 2 and 'argo_core' in md[1]['source'][0]['source'] and 'argo_bgc' in md[0]['source'][0]['source']:
+        md = [md[1], md[0]]
+
+    # populate all unique keys
+    ## mandatory keys - start complaining if we can't find these
+    for key in ['_id', 'cycle_number', 'basin', 'data_type', 'geolocation', 'instrument', 'timestamp', 'date_updated_argovis', 'fleetmonitoring', 'oceanops']:
+        if key not in md[0]:
+            print('error: missing mandatory key in metadata:', key)
+            return {}
+        else:
+            metadata[key] = md[0][key]
+            if len(md) == 2 and key in md[1] and md[0][key] != md[1][key] and key != 'date_updated_argovis': # date_updated_argovis will always mismatch by a few ms, doesn't matter
+                bgc_mismatches[key] = md[1][key]
+                data_warnings.add('bgc_mismatch')
+
+    ## optional keys
+    for key in ['profile_direction', 'platform', 'doi', 'data_center', 'pi_name', 'country', 'geolocation_argoqc', 'timestamp_argoqc', 'platform_type', 'positioning_system', 'vertical_sampling_scheme', 'wmo_inst_type']:
+        if key in md[0]:
+            metadata[key] = md[0][key]
+            if len(md) == 2 and key in md[1] and md[0][key] != md[1][key]:
+                bgc_mismatches[key] = md[1][key]
+                data_warnings.add('bgc_mismatch')
+        elif len(md) == 2 and key in md[1]:
+            metadata[key] = md[1][key]
+
+    # some keys are mandatory but allowed to be multi-valued lists:
+    for key in ['source']:
+        if key not in md[0]:
+            print('error: missing mandatory key in metadata:', key)
+            return {}
         metadata[key] = md[0][key]
+        if len(md) == 2:
+            if key not in md[1]:
+                print('error: missing mandatory key in metadata:', key, 'in second profile')
+                return {}
+            metadata[key].extend(md[1][key])
 
-    optional_unique_keys = ['profile_direction', 'platform', 'doi', 'data_center', 'pi_name', 'country', 'geolocation_argoqc', 'timestamp_argoqc', 'platform_type', 'positioning_system', 'vertical_sampling_scheme', 'wmo_inst_type']
-    for key in optional_unique_keys:
-        for m in md:
-            if key in m:
-                metadata[key] = m[key]
-                break 
+    # multi-valued optional lists
+    for key in ['data_warning']:
+        if key in md[0]:
+            metadata[key] = md[0][key]
+        if len(md) == 2 and key in md[1]:
+            if key not in metadata:
+                metadata[key] = []
+            metadata[key].extend(md[1][key])
 
-    mandatory_multivalue_keys = ['source']
-    for key in mandatory_multivalue_keys:
-        metadata[key] = []
-        for m in md:
-            metadata[key].extend(m[key])
-
-    optional_multivalue_keys = ['data_warning']
-    for key in optional_multivalue_keys:
-        for m in md:
-            if key in m:
-                if key not in metadata:
-                    metadata[key] = []
-                metadata[key].extend(m[key])
-
-    if 'data_warning' in metadata:
-        metadata['data_warning'] = list(set(metadata['data_warning']))
+    # tack on problem reporting if present
+    if len(data_warnings) > 0:
+        if 'data_warning' not in metadata:
+            metadata['data_warning'] = []
+        metadata['data_warning'].extend(list(data_warnings))
+    if bgc_mismatches:
+        print('warning: BGC mismatches logged', bgc_mismatches)
+        metadata['bgc_mismatches'] = bgc_mismatches
 
     return metadata
 
@@ -615,7 +627,7 @@ def select_files(folder, profile_number):
     # extract a list of filenames corresponding to this profile, and parse out the set of prefixes to consider; return a list of strings containing the full path to the relevant files.
 
     REprefix = re.compile('^[A-Z]*')                 # SD, SR, BD, BR, D or R
-    REgroup = re.compile('[0-9]*_[0-9]*D{0,1}\.nc')  # everything but the prefix
+    REgroup = re.compile(r'[0-9]*_[0-9]*D{0,1}\.nc')  # everything but the prefix
 
     pfilenames = [ x.split('/')[-1] for x in glob.glob(folder + '/*_' + profile_number + '.nc')]
     if len(pfilenames) == 0:

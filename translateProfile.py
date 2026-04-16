@@ -18,8 +18,6 @@ data = h.merge_data(separate_data)
 
 # extract and merge everything else, and check for consistency between files
 separate_metadata = [h.extract_metadata(x) for x in sys.argv[1:]]
-if not h.compare_metadata(separate_metadata):
-	print('error: files', sys.argv[1:], 'did not yield consistent metadata')
 metadata = h.merge_metadata(separate_metadata)
 
 # construct metadata record for the argoMeta table
@@ -31,7 +29,7 @@ for key in metaCopy:
 
 # construct data record for the argo table
 argo = {}
-dataCopy = ['_id', 'geolocation', 'basin', 'timestamp', 'date_updated_argovis', 'source', 'data_warning', 'cycle_number', 'geolocation_argoqc', 'profile_direction', 'timestamp_argoqc', 'vertical_sampling_scheme']
+dataCopy = ['_id', 'geolocation', 'basin', 'timestamp', 'date_updated_argovis', 'source', 'data_warning', 'cycle_number', 'geolocation_argoqc', 'profile_direction', 'timestamp_argoqc', 'vertical_sampling_scheme', 'bgc_mismatches']
 for key in dataCopy:
 	if key in metadata:
 		argo[key] = metadata[key]
@@ -43,6 +41,10 @@ if "degenerate_levels" in data["data_annotation"] and data["data_annotation"]["d
 		argo["data_warning"] = []
 	if "degenerate_levels" not in argo["data_warning"]:
 		argo["data_warning"].append("degenerate_levels")
+if 'data_warning' in metadata:
+    if 'data_warning' not in argo:
+        argo['data_warning'] = []
+    argo['data_warning'].extend(metadata['data_warning'])
 
 # # determine if this is a BGC profile, and assign data_keya and units accordingly
 # sources = [item for sublist in [x['source'] for x in argo['source']] for item in sublist]
@@ -76,7 +78,6 @@ except BaseException as err:
 argo['metadata'] = [argoMeta['_id']]
 # write data record to mongo
 try:
-	#print(argo)
     db.argo.replace_one({'_id': argo['_id']}, argo, True)
 except BaseException as err:
     print('error: data upsert failure on', argo)
