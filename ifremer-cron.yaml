@@ -37,7 +37,10 @@ spec:
               imagePullPolicy: Always
               env:
                 - name: MONGOCONNECT
-                  value: mongodb://database/argo
+                  valueFrom:
+                    secretKeyRef:
+                      name: mongo-vanilla
+                      key: mongoconnect
               volumeMounts:
                 - mountPath: "/bulk"
                   name: argovis-bulk
