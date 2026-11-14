@@ -35,6 +35,12 @@ spec:
               image: argovis/ifremer-sync:nightly
               command: ['bash', 'ifremer-sync.sh']
               imagePullPolicy: Always
+              env:
+                - name: MONGOCONNECT
+                  valueFrom:
+                    secretKeyRef:
+                      name: mongo-vanilla
+                      key: mongoconnect
               volumeMounts:
                 - mountPath: "/bulk"
                   name: argovis-bulk

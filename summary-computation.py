@@ -1,8 +1,8 @@
 from pymongo import MongoClient
 from bson.son import SON
-import datetime, json, copy, re
+import datetime, json, copy, re, os
 
-client = MongoClient('mongodb://database/argo')
+client = MongoClient(os.getenv("MONGOCONNECT"))
 db = client.argo
 
 # dac summary, response to /argo/dacs
