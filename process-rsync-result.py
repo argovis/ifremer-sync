@@ -1,9 +1,9 @@
 # usage: see ifremer-sync.sh
-import sys
+import sys, os
 import util.helpers as h
 from pymongo import MongoClient
 
-client = MongoClient('mongodb://database/argo')
+client = MongoClient(os.getenv("MONGOCONNECT"))
 db = client.argo
 
 profupdates = open("/tmp/profileUpdates.txt", "w")

@@ -5,7 +5,7 @@ import numpy.ma as ma
 import wget, xarray, time, re, datetime, math, os, glob
 import util.helpers as h
 
-client = MongoClient('mongodb://database/argo')
+client = MongoClient(os.getenv("MONGOCONNECT"))
 db = client.argo
 
 while True:

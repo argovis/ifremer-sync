@@ -3,11 +3,11 @@
 # assumes https://github.com/argovis/db-schema/blob/main/argo.py was run first to create the collection with schema enforcement and indexing
 # assumes rsync populated content under /ifremer, same as choosefiles.py
 
-import sys, xarray, re, datetime, difflib, pprint, numpy
+import sys, xarray, re, datetime, difflib, pprint, numpy, os
 from pymongo import MongoClient
 import util.helpers as h
 
-client = MongoClient('mongodb://database/argo')
+client = MongoClient(os.getenv("MONGOCONNECT"))
 db = client.argo
 
 print('parsing', sys.argv[1:])

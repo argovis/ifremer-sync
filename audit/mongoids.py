@@ -2,8 +2,9 @@
 # looks through mongo argo:argo and lists ids
 
 from pymongo import MongoClient
+import os
 
-client = MongoClient('mongodb://database/argo')
+client = MongoClient(os.getenv("MONGOCONNECT"))
 db = client.argo
 
 mongoprofiles = open("mongoprofiles", "w")
