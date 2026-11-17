@@ -39,8 +39,8 @@ spec:
                 - name: MONGOCONNECT
                   valueFrom:
                     secretKeyRef:
-                      name: mongo-vanilla
-                      key: mongoconnect
+                      name: mongo-users
+                      key: argo-rw-uri
               volumeMounts:
                 - mountPath: "/bulk"
                   name: argovis-bulk
